@@ -33,9 +33,7 @@ This project includes comprehensive documentation for setup, usage, and API mana
 
 ## 🔧 Technical Guides
 
-- **[PROMPT_ENGINEERING_GUIDE.md](PROMPT_ENGINEERING_GUIDE.md)** - Prompt engineering for quality images
-- **[QUANTIZATION.md](QUANTIZATION.md)** - Model quantization guide
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+_Technical guides have been removed. See ComfyUI official documentation for generic guides._
 
 ## 🚀 Quick Links
 
