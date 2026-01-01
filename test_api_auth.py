@@ -394,9 +394,9 @@ def main():
     results["delete_key"] = test_delete_api_key(key_id)
 
     # Summary
-    print(f"\n{Colors.BLUE}{'='*60}")
-    print("Test Summary")
-    print(f"{'='*60}{Colors.RESET}\n")
+    logger.info(f"\n{Colors.BLUE}{'='*60}")
+    logger.info("Test Summary")
+    logger.info(f"{'='*60}{Colors.RESET}\n")
 
     passed = sum(1 for v in results.values() if v)
     total = len(results)

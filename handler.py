@@ -40,7 +40,7 @@ def build_workflow(
 ) -> Dict[str, Any]:
     """
     Build a ComfyUI workflow JSON from parameters.
-    
+
     Args:
         prompt: Positive prompt text
         negative_prompt: Negative prompt text
@@ -51,7 +51,7 @@ def build_workflow(
         cfg_scale: CFG scale
         sampler: Sampler name
         seed: Random seed (None for random)
-    
+
     Returns:
         ComfyUI workflow dictionary
     """
@@ -124,11 +124,11 @@ def build_workflow(
 def queue_prompt(workflow: Dict[str, Any], client_id: Optional[str] = None) -> str:
     """
     Queue a prompt in ComfyUI and return the prompt_id.
-    
+
     Args:
         workflow: ComfyUI workflow dictionary
         client_id: Optional client ID
-    
+
     Returns:
         prompt_id string
     """
@@ -161,10 +161,10 @@ def queue_prompt(workflow: Dict[str, Any], client_id: Optional[str] = None) -> s
 def get_image(prompt_id: str) -> Optional[str]:
     """
     Get the generated image URL from ComfyUI history.
-    
+
     Args:
         prompt_id: The prompt ID to check
-    
+
     Returns:
         Image URL or None if not ready
     """
@@ -198,11 +198,11 @@ def get_image(prompt_id: str) -> Optional[str]:
 def wait_for_image(prompt_id: str, timeout: int = GENERATION_TIMEOUT) -> Optional[str]:
     """
     Wait for image generation to complete.
-    
+
     Args:
         prompt_id: The prompt ID to wait for
         timeout: Maximum time to wait in seconds
-    
+
     Returns:
         Image URL or None if timeout
     """
@@ -221,7 +221,7 @@ def wait_for_image(prompt_id: str, timeout: int = GENERATION_TIMEOUT) -> Optiona
 def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     """
     RunPod serverless handler for ComfyUI image generation.
-    
+
     Expected input format:
     {
         "input": {
@@ -236,7 +236,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             "seed": 12345 (optional)
         }
     }
-    
+
     Returns:
     {
         "output": {
