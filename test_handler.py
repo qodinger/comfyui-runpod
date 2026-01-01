@@ -6,11 +6,16 @@ Tests the handler without requiring ComfyUI to be running
 
 import json
 import sys
+import logging
 from handler import build_workflow, handler
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 def test_build_workflow():
     """Test workflow building"""
-    print("🧪 Testing build_workflow()...")
+    logger.info("🧪 Testing build_workflow()...")
 
     workflow = build_workflow(
         prompt="a beautiful landscape",
@@ -40,13 +45,13 @@ def test_build_workflow():
     assert workflow["6"]["inputs"]["text"] == "a beautiful landscape", "Prompt not set correctly"
     assert workflow["7"]["inputs"]["text"] == "blurry, low quality", "Negative prompt not set correctly"
 
-    print("✅ build_workflow() test passed!")
+    logger.info("✅ build_workflow() test passed!")
     return True
 
 
 def test_handler_structure():
     """Test handler function structure"""
-    print("\n🧪 Testing handler() structure...")
+    logger.info("\n🧪 Testing handler() structure...")
 
     # Test with missing prompt (should return error)
     job = {
@@ -57,7 +62,7 @@ def test_handler_structure():
     assert "error" in result or "status" in result, "Handler should return error or status"
     assert result.get("status") == "error" or "error" in result, "Should return error for missing prompt"
 
-    print("✅ Handler error handling works!")
+    logger.info("✅ Handler error handling works!")
 
     # Test with valid input structure (will fail without ComfyUI, but structure should be correct)
     job = {
@@ -73,17 +78,17 @@ def test_handler_structure():
         result = handler(job)
         # If it gets here, it means it tried to connect (which is expected to fail)
         assert "error" in result or "output" in result, "Handler should return error or output"
-        print("✅ Handler structure is correct (connection will fail without ComfyUI)")
+        logger.info("✅ Handler structure is correct (connection will fail without ComfyUI)")
     except Exception as e:
         # Expected - ComfyUI not running
-        print(f"⚠️  Handler tried to connect (expected): {type(e).__name__}")
+        logger.warning("⚠️  Handler tried to connect (expected): %s", type(e).__name__)
 
     return True
 
 
 def test_workflow_json():
     """Test that workflow is valid JSON"""
-    print("\n🧪 Testing workflow JSON validity...")
+    logger.info("\n🧪 Testing workflow JSON validity...")
 
     workflow = build_workflow(
         prompt="test",
@@ -99,15 +104,15 @@ def test_workflow_json():
     workflow_parsed = json.loads(json_str)
     assert workflow_parsed == workflow, "Workflow should round-trip through JSON"
 
-    print("✅ Workflow JSON is valid!")
+    logger.info("✅ Workflow JSON is valid!")
     return True
 
 
 def main():
     """Run all tests"""
-    print("=" * 60)
-    print("Testing RunPod Serverless Handler")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Testing RunPod Serverless Handler")
+    logger.info("=" * 60)
 
     tests = [
         test_build_workflow,
@@ -123,25 +128,25 @@ def main():
             if test():
                 passed += 1
         except AssertionError as e:
-            print(f"❌ Test failed: {e}")
+            logger.error("❌ Test failed: %s", e)
             failed += 1
         except Exception as e:
-            print(f"❌ Test error: {e}")
+            logger.error("❌ Test error: %s", e)
             failed += 1
 
-    print("\n" + "=" * 60)
-    print(f"Tests: {passed} passed, {failed} failed")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("Tests: %d passed, %d failed", passed, failed)
+    logger.info("=" * 60)
 
     if failed == 0:
-        print("\n✅ All tests passed!")
-        print("\nNote: Full integration test requires ComfyUI to be running.")
-        print("To test with ComfyUI:")
-        print("  1. Start ComfyUI: python main.py --enable-api-auth")
-        print("  2. Run: python test_handler.py --integration")
+        logger.info("\n✅ All tests passed!")
+        logger.info("\nNote: Full integration test requires ComfyUI to be running.")
+        logger.info("To test with ComfyUI:")
+        logger.info("  1. Start ComfyUI: python main.py --enable-api-auth")
+        logger.info("  2. Run: python test_handler.py --integration")
         return 0
     else:
-        print("\n❌ Some tests failed")
+        logger.error("\n❌ Some tests failed")
         return 1
 
 

@@ -9,7 +9,12 @@ Make sure ComfyUI is running with --enable-api-auth or --require-api-auth
 import requests
 import time
 import sys
+import logging
 from typing import Dict, Optional
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 BASE_URL = "http://localhost:8188"
 TEST_KEY_NAME = "Test Key - " + str(int(time.time()))
@@ -24,19 +29,19 @@ class Colors:
 
 
 def print_test(name: str):
-    print(f"\n{Colors.BLUE}Testing: {name}{Colors.RESET}")
+    logger.info(f"\n{Colors.BLUE}Testing: {name}{Colors.RESET}")
 
 
 def print_success(message: str):
-    print(f"{Colors.GREEN}✓ {message}{Colors.RESET}")
+    logger.info(f"{Colors.GREEN}✓ {message}{Colors.RESET}")
 
 
 def print_error(message: str):
-    print(f"{Colors.RED}✗ {message}{Colors.RESET}")
+    logger.error(f"{Colors.RED}✗ {message}{Colors.RESET}")
 
 
 def print_warning(message: str):
-    print(f"{Colors.YELLOW}⚠ {message}{Colors.RESET}")
+    logger.warning(f"{Colors.YELLOW}⚠ {message}{Colors.RESET}")
 
 
 def test_server_running() -> bool:
@@ -125,10 +130,10 @@ def test_get_key_details(key_id: str) -> bool:
             data = response.json()
             if "key_id" in data and "usage_stats" in data:
                 print_success("Key details retrieved")
-                print(f"  Name: {data.get('name')}")
-                print(f"  Rate Limit: {data.get('rate_limit')}/hour")
-                print(f"  Active: {data.get('is_active')}")
-                print(f"  Total Requests: {data['usage_stats'].get('total_requests', 0)}")
+                logger.info("  Name: %s", data.get('name'))
+                logger.info("  Rate Limit: %s/hour", data.get('rate_limit'))
+                logger.info("  Active: %s", data.get('is_active'))
+                logger.info("  Total Requests: %s", data['usage_stats'].get('total_requests', 0))
                 return True
             else:
                 print_error("Invalid response format")
@@ -183,9 +188,9 @@ def test_usage_tracking(api_key: str) -> bool:
             if "usage_stats" in data:
                 print_success("Usage tracking is working")
                 stats = data["usage_stats"]
-                print(f"  Total Requests: {stats.get('total_requests', 0)}")
-                print(f"  Successful: {stats.get('successful_requests', 0)}")
-                print(f"  Failed: {stats.get('failed_requests', 0)}")
+                logger.info("  Total Requests: %s", stats.get('total_requests', 0))
+                logger.info("  Successful: %s", stats.get('successful_requests', 0))
+                logger.info("  Failed: %s", stats.get('failed_requests', 0))
                 return True
             else:
                 print_error("Invalid response format")
@@ -209,7 +214,7 @@ def test_rate_limiting(api_key: str, key_id: str) -> bool:
             return False
 
         rate_limit = details_response.json().get("rate_limit", 10)
-        print(f"  Rate limit: {rate_limit} requests/hour")
+        logger.info("  Rate limit: %s requests/hour", rate_limit)
 
         # Make requests up to the limit
         headers = {"X-API-Key": api_key}
@@ -227,7 +232,7 @@ def test_rate_limiting(api_key: str, key_id: str) -> bool:
                 remaining = int(response.headers.get("X-RateLimit-Remaining", -1))
                 if i < rate_limit:
                     if remaining == (rate_limit - i - 1):
-                        print(f"  Request {i+1}: {remaining} remaining ✓")
+                        logger.info("  Request %d: %d remaining ✓", i+1, remaining)
                     else:
                         print_warning(f"  Request {i+1}: Expected {rate_limit - i - 1}, got {remaining}")
                 else:
@@ -340,9 +345,9 @@ def test_delete_api_key(key_id: str) -> bool:
 
 def main():
     """Run all tests"""
-    print(f"\n{Colors.BLUE}{'='*60}")
-    print("ComfyUI API Authentication Test Suite")
-    print(f"{'='*60}{Colors.RESET}\n")
+    logger.info(f"\n{Colors.BLUE}{'='*60}")
+    logger.info("ComfyUI API Authentication Test Suite")
+    logger.info(f"{'='*60}{Colors.RESET}\n")
 
     results = {}
 
@@ -402,7 +407,7 @@ def main():
         else:
             print_error(f"{test_name}")
 
-    print(f"\n{Colors.BLUE}Results: {passed}/{total} tests passed{Colors.RESET}\n")
+    logger.info(f"\n{Colors.BLUE}Results: {passed}/{total} tests passed{Colors.RESET}\n")
 
     if passed == total:
         print_success("All tests passed! 🎉")
@@ -416,7 +421,7 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        print(f"\n{Colors.YELLOW}Tests interrupted by user{Colors.RESET}")
+        logger.warning(f"\n{Colors.YELLOW}Tests interrupted by user{Colors.RESET}")
         sys.exit(1)
     except Exception as e:
         print_error(f"Unexpected error: {e}")

@@ -57,7 +57,7 @@ def build_workflow(
     """
     if seed is None:
         seed = int(time.time() * 1000) % (2**31)
-    
+
     workflow = {
         "3": {
             "class_type": "KSampler",
@@ -117,7 +117,7 @@ def build_workflow(
             }
         }
     }
-    
+
     return workflow
 
 
@@ -133,28 +133,28 @@ def queue_prompt(workflow: Dict[str, Any], client_id: Optional[str] = None) -> s
         prompt_id string
     """
     prompt_id = str(uuid.uuid4())
-    
+
     payload = {
         "prompt": workflow,
         "prompt_id": prompt_id
     }
-    
+
     if client_id:
         payload["client_id"] = client_id
-    
+
     url = urljoin(COMFYUI_URL, "/prompt")
     headers = {"Content-Type": "application/json"}
-    
+
     if COMFYUI_API_KEY:
         headers["X-API-Key"] = COMFYUI_API_KEY
-    
+
     response = requests.post(url, json=payload, headers=headers, timeout=30)
     response.raise_for_status()
-    
+
     result = response.json()
     if "error" in result:
         raise Exception(f"ComfyUI error: {result['error']}")
-    
+
     return prompt_id
 
 
@@ -170,15 +170,15 @@ def get_image(prompt_id: str) -> Optional[str]:
     """
     url = urljoin(COMFYUI_URL, f"/history/{prompt_id}")
     headers = {}
-    
+
     if COMFYUI_API_KEY:
         headers["X-API-Key"] = COMFYUI_API_KEY
-    
+
     response = requests.get(url, headers=headers, timeout=10)
     response.raise_for_status()
-    
+
     history = response.json()
-    
+
     if prompt_id in history:
         images = history[prompt_id]
         if images and len(images) > 0:
@@ -191,7 +191,7 @@ def get_image(prompt_id: str) -> Optional[str]:
                     subfolder = images_data[0].get("subfolder", "")
                     image_url = urljoin(COMFYUI_URL, f"/view?filename={filename}&subfolder={subfolder}&type=output")
                     return image_url
-    
+
     return None
 
 
@@ -207,14 +207,14 @@ def wait_for_image(prompt_id: str, timeout: int = GENERATION_TIMEOUT) -> Optiona
         Image URL or None if timeout
     """
     start_time = time.time()
-    
+
     while time.time() - start_time < timeout:
         image_url = get_image(prompt_id)
         if image_url:
             return image_url
-        
+
         time.sleep(POLL_INTERVAL)
-    
+
     raise TimeoutError(f"Image generation timed out after {timeout} seconds")
 
 
@@ -248,7 +248,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     """
     try:
         input_data = job.get("input", {})
-        
+
         # Extract parameters
         prompt = input_data.get("prompt")
         if not prompt:
@@ -256,7 +256,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "error": "Missing required parameter: prompt",
                 "status": "error"
             }
-        
+
         negative_prompt = input_data.get("negative_prompt", "")
         checkpoint = input_data.get("checkpoint", "AnythingXL_xl.safetensors")
         width = int(input_data.get("width", 512))
@@ -265,9 +265,9 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         cfg_scale = float(input_data.get("cfg_scale", 7.5))
         sampler = input_data.get("sampler", "euler_ancestral")
         seed = input_data.get("seed")
-        
+
         logger.info(f"Generating image with prompt: {prompt[:50]}...")
-        
+
         # Build workflow
         workflow = build_workflow(
             prompt=prompt,
@@ -280,23 +280,23 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             sampler=sampler,
             seed=seed
         )
-        
+
         # Queue prompt
         prompt_id = queue_prompt(workflow)
         logger.info(f"Queued prompt: {prompt_id}")
-        
+
         # Wait for image
         image_url = wait_for_image(prompt_id, timeout=GENERATION_TIMEOUT)
-        
+
         if not image_url:
             return {
                 "error": "Image generation failed or timed out",
                 "prompt_id": prompt_id,
                 "status": "error"
             }
-        
+
         logger.info(f"Image generated: {image_url}")
-        
+
         return {
             "output": {
                 "image_url": image_url,
@@ -314,7 +314,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 }
             }
         }
-        
+
     except TimeoutError as e:
         logger.error(f"Timeout: {e}")
         return {
