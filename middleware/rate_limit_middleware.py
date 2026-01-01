@@ -33,10 +33,10 @@ def create_rate_limit_middleware(usage_tracker: UsageTracker):
 
         # Fixed Bug 1: Increment usage count BEFORE checking to prevent TOCTOU race condition
         # This ensures concurrent requests see the updated count immediately
-        usage_tracker.increment_usage_count(api_key.key_id)
-        current_hour_usage = usage_tracker.get_usage_count(api_key.key_id, hours=1)
+        # Use >= instead of > to correctly reject when limit is exactly reached
+        new_count = usage_tracker.increment_usage_count(api_key.key_id)
 
-        if current_hour_usage > api_key.rate_limit:
+        if new_count >= api_key.rate_limit:
             # Over limit - decrement the count we just incremented
             current_hour = int(time.time() // 3600)
             usage_tracker.hourly_counts[api_key.key_id][current_hour] = max(0, usage_tracker.hourly_counts[api_key.key_id][current_hour] - 1)
@@ -58,7 +58,9 @@ def create_rate_limit_middleware(usage_tracker: UsageTracker):
         # Add rate limit headers
         response = await handler(request)
 
-        remaining = api_key.rate_limit - current_hour_usage
+        # Calculate remaining: limit - new_count
+        # new_count already includes the increment for this request, so the calculation is correct
+        remaining = api_key.rate_limit - new_count
         reset_time = int(time.time()) + (3600 - (int(time.time()) % 3600))
 
         response.headers['X-RateLimit-Limit'] = str(api_key.rate_limit)
