@@ -100,7 +100,14 @@ See [HOW_TO_GET_API_KEY.md](HOW_TO_GET_API_KEY.md) for more examples.
 
 ## 📝 License
 
-Based on ComfyUI (see LICENSE file)
+This project is based on [ComfyUI](https://github.com/comfyanonymous/ComfyUI) and is licensed under **GNU GPL v3.0**.
+
+- ✅ You can clone, modify, and use this code
+- ✅ You can use it commercially
+- ✅ You can create your own project based on it
+- 📋 You must keep the GPL-3.0 license (see [LICENSE](LICENSE) file)
+
+See [LICENSE_NOTICE.md](LICENSE_NOTICE.md) for details.
 
 ## 🔗 Links
 
