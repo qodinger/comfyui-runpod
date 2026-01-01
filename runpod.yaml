@@ -3,7 +3,7 @@
 
 name: comfyui-with-auth
 description: ComfyUI image generation with API authentication, rate limiting, and usage tracking
-version: 1.0.0
+version: 0.1.0
 
 # Container configuration
 # NOTE: When deploying from GitHub, RunPod will build from your Dockerfile automatically

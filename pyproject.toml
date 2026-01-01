@@ -1,14 +1,14 @@
 [project]
-name = "ComfyUI"
-version = "0.7.0"
+name = "comfyui-runpod"
+version = "0.1.0"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
 
 [project.urls]
-homepage = "https://www.comfy.org/"
-repository = "https://github.com/comfyanonymous/ComfyUI"
-documentation = "https://docs.comfy.org/"
+homepage = "https://github.com/qodinger/comfyui-runpod"
+repository = "https://github.com/qodinger/comfyui-runpod"
+documentation = "https://github.com/qodinger/comfyui-runpod#readme"
 
 [tool.ruff]
 lint.select = [

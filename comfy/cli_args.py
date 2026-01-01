@@ -183,7 +183,7 @@ parser.add_argument("--log-stdout", action="store_true", help="Send normal proce
 
 
 # The default built-in provider hosted under web/
-DEFAULT_VERSION_STRING = "comfyanonymous/ComfyUI@latest"
+DEFAULT_VERSION_STRING = "qodinger/comfyui-runpod@latest"
 
 parser.add_argument(
     "--front-end-version",

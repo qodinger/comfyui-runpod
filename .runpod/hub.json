@@ -1,0 +1,183 @@
+{
+  "title": "ComfyUI with API Authentication",
+  "description": "ComfyUI image generation with API authentication, rate limiting, and usage tracking. Deploy ComfyUI on RunPod with secure API key management.",
+  "type": "serverless",
+  "category": "image",
+  "config": {
+    "runsOn": "GPU",
+    "containerDiskInGb": 50,
+    "gpuCount": 1,
+    "gpuIds": "RTX_3090,RTX_A4000,RTX_A5000,RTX_6000_Ada",
+    "allowedCudaVersions": [
+      "12.8",
+      "12.7",
+      "12.6",
+      "12.5",
+      "12.4",
+      "12.3",
+      "12.2",
+      "12.1",
+      "12.0",
+      "11.7"
+    ],
+    "presets": [
+      {
+        "name": "Standard Quality",
+        "defaults": {
+          "CHECKPOINT": "AnythingXL_xl.safetensors",
+          "WIDTH": 512,
+          "HEIGHT": 512,
+          "STEPS": 30,
+          "CFG_SCALE": 7.5,
+          "SAMPLER": "euler_ancestral"
+        }
+      },
+      {
+        "name": "High Quality",
+        "defaults": {
+          "CHECKPOINT": "AnythingXL_xl.safetensors",
+          "WIDTH": 1024,
+          "HEIGHT": 1024,
+          "STEPS": 50,
+          "CFG_SCALE": 7.5,
+          "SAMPLER": "dpmpp_2m"
+        }
+      },
+      {
+        "name": "Fast Generation",
+        "defaults": {
+          "CHECKPOINT": "AnythingXL_xl.safetensors",
+          "WIDTH": 512,
+          "HEIGHT": 512,
+          "STEPS": 20,
+          "CFG_SCALE": 7.0,
+          "SAMPLER": "euler_ancestral"
+        }
+      }
+    ],
+    "env": [
+      {
+        "key": "COMFYUI_URL",
+        "value": "http://localhost:8188"
+      },
+      {
+        "key": "GENERATION_TIMEOUT",
+        "input": {
+          "name": "Generation Timeout",
+          "type": "number",
+          "description": "Maximum time (in seconds) to wait for image generation",
+          "min": 60,
+          "max": 600,
+          "default": 300,
+          "advanced": true
+        }
+      },
+      {
+        "key": "POLL_INTERVAL",
+        "input": {
+          "name": "Poll Interval",
+          "type": "number",
+          "description": "Interval (in seconds) between status checks",
+          "min": 0.5,
+          "max": 5.0,
+          "default": 1.0,
+          "advanced": true
+        }
+      },
+      {
+        "key": "CHECKPOINT",
+        "input": {
+          "name": "Checkpoint Model",
+          "type": "string",
+          "description": "Name of the checkpoint model file (must be in models/checkpoints/)",
+          "default": "AnythingXL_xl.safetensors",
+          "advanced": false
+        }
+      },
+      {
+        "key": "WIDTH",
+        "input": {
+          "name": "Image Width",
+          "type": "number",
+          "description": "Width of generated images in pixels",
+          "min": 128,
+          "max": 2048,
+          "default": 512,
+          "advanced": false
+        }
+      },
+      {
+        "key": "HEIGHT",
+        "input": {
+          "name": "Image Height",
+          "type": "number",
+          "description": "Height of generated images in pixels",
+          "min": 128,
+          "max": 2048,
+          "default": 512,
+          "advanced": false
+        }
+      },
+      {
+        "key": "STEPS",
+        "input": {
+          "name": "Sampling Steps",
+          "type": "number",
+          "description": "Number of sampling steps (more steps = higher quality but slower)",
+          "min": 1,
+          "max": 100,
+          "default": 30,
+          "advanced": false
+        }
+      },
+      {
+        "key": "CFG_SCALE",
+        "input": {
+          "name": "CFG Scale",
+          "type": "number",
+          "description": "Classifier-free guidance scale (how closely to follow the prompt)",
+          "min": 1.0,
+          "max": 20.0,
+          "default": 7.5,
+          "advanced": false
+        }
+      },
+      {
+        "key": "SAMPLER",
+        "input": {
+          "name": "Sampler",
+          "type": "string",
+          "description": "Sampling method to use",
+          "options": [
+            { "label": "Euler Ancestral", "value": "euler_ancestral" },
+            { "label": "DPM++ 2M", "value": "dpmpp_2m" },
+            { "label": "DPM++ 2M Karras", "value": "dpmpp_2m_karras" },
+            { "label": "DPM++ SDE", "value": "dpmpp_sde" },
+            { "label": "DPM++ SDE Karras", "value": "dpmpp_sde_karras" },
+            { "label": "Euler", "value": "euler" },
+            { "label": "Heun", "value": "heun" },
+            { "label": "LMS", "value": "lms" },
+            { "label": "DPM Fast", "value": "dpm_fast" },
+            { "label": "DPM Adaptive", "value": "dpm_adaptive" },
+            { "label": "DDIM", "value": "ddim" },
+            { "label": "PLMS", "value": "plms" }
+          ],
+          "default": "euler_ancestral",
+          "advanced": false
+        }
+      },
+      {
+        "key": "ENABLE_API_AUTH",
+        "input": {
+          "type": "boolean",
+          "name": "Enable API Authentication",
+          "description": "Enable API key authentication for ComfyUI endpoints",
+          "default": true,
+          "trueValue": "true",
+          "falseValue": "false",
+          "advanced": true
+        }
+      }
+    ]
+  }
+}
