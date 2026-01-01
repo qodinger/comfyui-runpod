@@ -1076,9 +1076,33 @@ class PromptServer():
 
     def _add_api_key_routes(self):
         """Add API key management routes"""
+
+        def _require_auth(request):
+            """
+            Fixed Bug 1: Always require authentication for API key management endpoints.
+            Returns APIKey object if authenticated, or None if not.
+            """
+            api_key = request.get('api_key')
+            if not api_key:
+                # Check for API key in header if not set by middleware
+                api_key_header = request.headers.get('X-API-Key') or request.headers.get('Authorization')
+                if api_key_header and api_key_header.startswith('Bearer '):
+                    api_key_header = api_key_header[7:]
+                if api_key_header:
+                    api_key = self.api_key_manager.validate_key(api_key_header)
+            return api_key
+
         @self.routes.post("/keys")
         async def create_api_key(request):
             """Create a new API key"""
+            # Fixed Bug 1: Always require authentication for API key management
+            api_key = _require_auth(request)
+            if not api_key:
+                return web.json_response(
+                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                    status=401
+                )
+
             try:
                 data = await request.json()
                 name = data.get("name", "Unnamed Key")
@@ -1108,12 +1132,28 @@ class PromptServer():
         @self.routes.get("/keys")
         async def list_api_keys(request):
             """List all API keys (without showing the actual keys)"""
+            # Fixed Bug 1: Always require authentication for API key management
+            api_key = _require_auth(request)
+            if not api_key:
+                return web.json_response(
+                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                    status=401
+                )
+
             keys = self.api_key_manager.list_keys()
             return web.json_response({"keys": keys})
 
         @self.routes.get("/keys/{key_id}")
         async def get_api_key(request):
             """Get details of a specific API key"""
+            # Fixed Bug 1: Always require authentication for API key management
+            api_key = _require_auth(request)
+            if not api_key:
+                return web.json_response(
+                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                    status=401
+                )
+
             key_id = request.match_info.get("key_id")
             key = self.api_key_manager.get_key(key_id)
 
@@ -1134,6 +1174,14 @@ class PromptServer():
         @self.routes.patch("/keys/{key_id}")
         async def update_api_key(request):
             """Update an API key"""
+            # Fixed Bug 1: Always require authentication for API key management
+            api_key = _require_auth(request)
+            if not api_key:
+                return web.json_response(
+                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                    status=401
+                )
+
             key_id = request.match_info.get("key_id")
             data = await request.json()
 
@@ -1155,6 +1203,14 @@ class PromptServer():
         @self.routes.delete("/keys/{key_id}")
         async def delete_api_key(request):
             """Delete an API key"""
+            # Fixed Bug 1: Always require authentication for API key management
+            api_key = _require_auth(request)
+            if not api_key:
+                return web.json_response(
+                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                    status=401
+                )
+
             key_id = request.match_info.get("key_id")
             success = self.api_key_manager.delete_key(key_id)
 
@@ -1188,7 +1244,14 @@ class PromptServer():
         @self.routes.get("/usage/all")
         async def get_all_usage(request):
             """Get usage statistics for all API keys (admin endpoint)"""
-            # This could be protected with admin authentication in the future
+            # Fixed Bug 1: Always require authentication for API key management
+            api_key = _require_auth(request)
+            if not api_key:
+                return web.json_response(
+                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                    status=401
+                )
+
             days = int(request.rel_url.query.get("days", 30))
             all_stats = self.usage_tracker.get_all_usage_stats(days=days)
 

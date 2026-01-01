@@ -6,15 +6,24 @@ description: ComfyUI image generation with API authentication, rate limiting, an
 version: 1.0.0
 
 # Container configuration
-container:
-  image: your-dockerhub-username/comfyui-runpod:latest
-  # Or use: runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel as base
+# NOTE: When deploying from GitHub, RunPod will build from your Dockerfile automatically
+# You don't need to specify an image here - RunPod handles it!
+#
+# If you want to use a pre-built image instead:
+# Option 1: Use Docker Hub (requires Docker Hub account)
+#   image: your-dockerhub-username/comfyui-runpod:latest
+#
+# Option 2: Use RunPod's container registry (if available)
+#   image: runpod.io/your-username/comfyui-runpod:latest
+#
+# For GitHub deployment, leave this commented or remove it:
+# image: your-dockerhub-username/comfyui-runpod:latest
 
 # GPU requirements
 gpu:
   type: NVIDIA
   count: 1
-  memory: 24GB  # Adjust based on your model requirements
+  memory: 24GB # Adjust based on your model requirements
 
 # Environment variables
 env:
@@ -26,14 +35,14 @@ env:
 
 # Volumes (for persistent storage)
 volumes:
-  - /workspace/models:/app/models  # Model storage
-  - /workspace/output:/app/output  # Generated images
-  - /workspace/user:/app/user      # User data and API keys
+  - /workspace/models:/app/models # Model storage
+  - /workspace/output:/app/output # Generated images
+  - /workspace/user:/app/user # User data and API keys
 
 # Network
 network:
   ports:
-    - 8188:8188  # ComfyUI port
+    - 8188:8188 # ComfyUI port
 
 # Health check
 healthcheck:
@@ -46,4 +55,3 @@ scaling:
   min_instances: 0
   max_instances: 10
   target_utilization: 70
-

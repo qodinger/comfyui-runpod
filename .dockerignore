@@ -62,6 +62,7 @@ user/api_usage.json
 # Scripts (not needed in container)
 *.sh
 !start.sh
+!start_serverless.sh
 
 # Examples
 script_examples/

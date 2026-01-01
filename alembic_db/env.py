@@ -1,7 +1,15 @@
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
-from alembic import context
+# These imports are required at runtime but may not be available in the linter environment
+# They are installed via requirements.txt (alembic, SQLAlchemy)
+try:
+    from sqlalchemy import engine_from_config  # type: ignore
+    from sqlalchemy import pool  # type: ignore
+    from alembic import context  # type: ignore
+except ImportError as exc:
+    # This file is only used when alembic is installed
+    # The import error here is expected in linter environments
+    raise ImportError(
+        "alembic and sqlalchemy are required. Install with: pip install alembic SQLAlchemy"
+    ) from exc
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -40,6 +48,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
+    This configures the context with a connection to the database.
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
