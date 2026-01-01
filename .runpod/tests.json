@@ -40,8 +40,8 @@
     }
   ],
   "config": {
-    "gpuTypeId": "RTX_A4000",
     "gpuCount": 1,
+    "containerDiskInGb": 50,
     "env": [
       {
         "key": "COMFYUI_URL",

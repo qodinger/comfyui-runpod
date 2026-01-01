@@ -72,16 +72,16 @@ See API documentation at `/docs` endpoint when server is running.
 
 Create a `.env` file (see `env.example`):
 
-```bash
+   ```bash
 COMFYUI_URL=http://localhost:8188
 GENERATION_TIMEOUT=300
 POLL_INTERVAL=1.0
 COMFYUI_API_KEY=  # Optional
-```
+   ```
 
 ### Command Line Arguments
 
-```bash
+   ```bash
 # Enable API authentication (optional)
 python main.py --enable-api-auth
 
