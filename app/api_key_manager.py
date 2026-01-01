@@ -11,14 +11,13 @@ import hashlib
 import time
 import logging
 from typing import Optional, Dict, List
-from datetime import datetime, timedelta
 import folder_paths
 
 
 class APIKey:
     """Represents an API key with metadata"""
-    def __init__(self, key_id: str, key_hash: str, name: str, created_at: float, 
-                 last_used: Optional[float] = None, rate_limit: int = 100, 
+    def __init__(self, key_id: str, key_hash: str, name: str, created_at: float,
+                 last_used: Optional[float] = None, rate_limit: int = 100,
                  is_active: bool = True, metadata: Optional[Dict] = None):
         self.key_id = key_id
         self.key_hash = key_hash
@@ -61,7 +60,7 @@ class APIKey:
 
 class APIKeyManager:
     """Manages API keys for external API access"""
-    
+
     def __init__(self):
         self.keys_file = os.path.join(folder_paths.get_user_directory(), "api_keys.json")
         self.keys: Dict[str, APIKey] = {}
@@ -71,15 +70,15 @@ class APIKeyManager:
         """Load API keys from disk"""
         if os.path.exists(self.keys_file):
             try:
-                with open(self.keys_file, 'r') as f:
+                with open(self.keys_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.keys = {
                         key_id: APIKey.from_dict(key_data)
                         for key_id, key_data in data.items()
                     }
-                logging.info(f"Loaded {len(self.keys)} API keys")
+                logging.info("Loaded %d API keys", len(self.keys))
             except Exception as e:
-                logging.error(f"Failed to load API keys: {e}")
+                logging.error("Failed to load API keys: %s", e)
                 self.keys = {}
         else:
             self.keys = {}
@@ -92,28 +91,28 @@ class APIKeyManager:
                 key_id: key.to_dict(include_hash=True)
                 for key_id, key in self.keys.items()
             }
-            with open(self.keys_file, 'w') as f:
+            with open(self.keys_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            logging.error(f"Failed to save API keys: {e}")
+            logging.error("Failed to save API keys: %s", e)
 
-    def generate_key(self, name: str, rate_limit: int = 100, 
+    def generate_key(self, name: str, rate_limit: int = 100,
                     metadata: Optional[Dict] = None) -> tuple[str, str]:
         """
         Generate a new API key
-        
+
         Returns:
             tuple: (key_id, plaintext_key) - The plaintext key is only shown once
         """
         # Generate a secure random key
         plaintext_key = f"comfy_{secrets.token_urlsafe(32)}"
-        
+
         # Hash the key for storage (using SHA-256)
         key_hash = hashlib.sha256(plaintext_key.encode()).hexdigest()
-        
+
         # Generate a unique key ID
         key_id = secrets.token_urlsafe(16)
-        
+
         # Create APIKey object
         api_key = APIKey(
             key_id=key_id,
@@ -124,32 +123,32 @@ class APIKeyManager:
             is_active=True,
             metadata=metadata or {}
         )
-        
+
         self.keys[key_id] = api_key
         self.save_keys()
-        
-        logging.info(f"Generated new API key: {name} (ID: {key_id})")
+
+        logging.info("Generated new API key: %s (ID: %s)", name, key_id)
         return key_id, plaintext_key
 
     def validate_key(self, api_key: str) -> Optional[APIKey]:
         """
         Validate an API key and return the APIKey object if valid
-        
+
         Args:
             api_key: The plaintext API key to validate
-            
+
         Returns:
             APIKey object if valid, None otherwise
         """
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-        
+
         for key in self.keys.values():
             if key.key_hash == key_hash and key.is_active:
                 # Update last used timestamp
                 key.last_used = time.time()
                 self.save_keys()
                 return key
-        
+
         return None
 
     def get_key(self, key_id: str) -> Optional[APIKey]:
@@ -165,7 +164,7 @@ class APIKeyManager:
         if key_id in self.keys:
             del self.keys[key_id]
             self.save_keys()
-            logging.info(f"Deleted API key: {key_id}")
+            logging.info("Deleted API key: %s", key_id)
             return True
         return False
 
@@ -175,7 +174,7 @@ class APIKeyManager:
         """Update an API key's properties"""
         if key_id not in self.keys:
             return False
-        
+
         key = self.keys[key_id]
         if name is not None:
             key.name = name
@@ -183,7 +182,6 @@ class APIKeyManager:
             key.rate_limit = rate_limit
         if is_active is not None:
             key.is_active = is_active
-        
+
         self.save_keys()
         return True
-

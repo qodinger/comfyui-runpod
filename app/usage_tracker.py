@@ -10,7 +10,7 @@ import time
 import logging
 from typing import Dict, List, Optional
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 import folder_paths
 
 
@@ -38,7 +38,7 @@ class UsageRecord:
 
 class UsageTracker:
     """Tracks API usage for billing and analytics"""
-    
+
     def __init__(self, max_records: int = 10000):
         self.usage_file = os.path.join(folder_paths.get_user_directory(), "api_usage.json")
         self.max_records = max_records
@@ -50,14 +50,14 @@ class UsageTracker:
         """Load usage records from disk"""
         if os.path.exists(self.usage_file):
             try:
-                with open(self.usage_file, 'r') as f:
+                with open(self.usage_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.records = [
                         UsageRecord(**record) for record in data.get("records", [])
                     ]
-                logging.info(f"Loaded {len(self.records)} usage records")
+                logging.info("Loaded %d usage records", len(self.records))
             except Exception as e:
-                logging.error(f"Failed to load usage records: {e}")
+                logging.error("Failed to load usage records: %s", e)
                 self.records = []
 
     def save_usage(self):
@@ -67,14 +67,25 @@ class UsageTracker:
             data = {
                 "records": [record.to_dict() for record in self.records[-self.max_records:]]
             }
-            with open(self.usage_file, 'w') as f:
+            with open(self.usage_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            logging.error(f"Failed to save usage records: {e}")
+            logging.error("Failed to save usage records: %s", e)
 
-    def record_usage(self, key_id: str, endpoint: str, duration: float, 
-                     success: bool = True, metadata: Optional[Dict] = None):
-        """Record an API usage event"""
+    def record_usage(self, key_id: str, endpoint: str, duration: float,
+                     success: bool = True, metadata: Optional[Dict] = None,
+                     skip_hourly_increment: bool = False):
+        """
+        Record an API usage event
+
+        Args:
+            key_id: The API key ID
+            endpoint: The endpoint that was called
+            duration: Request duration in seconds
+            success: Whether the request was successful
+            metadata: Additional metadata
+            skip_hourly_increment: If True, don't increment hourly count (already done in rate_limit_middleware)
+        """
         record = UsageRecord(
             key_id=key_id,
             endpoint=endpoint,
@@ -83,24 +94,26 @@ class UsageTracker:
             success=success,
             metadata=metadata
         )
-        
+
         self.records.append(record)
-        
+
         # Track hourly counts for rate limiting
+        # Skip if already incremented in rate_limit_middleware to prevent double-counting
         hour_key = int(record.timestamp // 3600)
-        self.hourly_counts[key_id][hour_key] += 1
-        
+        if not skip_hourly_increment:
+            self.hourly_counts[key_id][hour_key] += 1
+
         # Clean up old hourly counts (keep last 24 hours)
         cutoff_hour = hour_key - 24
         self.hourly_counts[key_id] = {
-            h: c for h, c in self.hourly_counts[key_id].items() 
+            h: c for h, c in self.hourly_counts[key_id].items()
             if h > cutoff_hour
         }
-        
+
         # Trim records if too many
         if len(self.records) > self.max_records:
             self.records = self.records[-self.max_records:]
-        
+
         # Periodically save (every 10 records)
         if len(self.records) % 10 == 0:
             self.save_usage()
@@ -109,23 +122,33 @@ class UsageTracker:
         """Get usage count for a key in the last N hours"""
         current_hour = int(time.time() // 3600)
         cutoff_hour = current_hour - hours
-        
+
         total = 0
         for hour, count in self.hourly_counts[key_id].items():
-            if hour > cutoff_hour:
+            if hour >= cutoff_hour:  # Fixed: use >= to include cutoff hour
                 total += count
-        
+
         return total
+
+    def increment_usage_count(self, key_id: str) -> int:
+        """
+        Atomically increment usage count for rate limiting.
+        Returns the new count for the current hour.
+        This prevents TOCTOU race conditions.
+        """
+        current_hour = int(time.time() // 3600)
+        self.hourly_counts[key_id][current_hour] += 1
+        return self.hourly_counts[key_id][current_hour]
 
     def get_usage_stats(self, key_id: str, days: int = 30) -> Dict:
         """Get usage statistics for a key"""
         cutoff_time = time.time() - (days * 24 * 3600)
-        
+
         relevant_records = [
             r for r in self.records
             if r.key_id == key_id and r.timestamp >= cutoff_time
         ]
-        
+
         if not relevant_records:
             return {
                 "total_requests": 0,
@@ -135,16 +158,16 @@ class UsageTracker:
                 "average_duration": 0,
                 "requests_per_day": {}
             }
-        
+
         successful = sum(1 for r in relevant_records if r.success)
         total_duration = sum(r.duration for r in relevant_records)
-        
+
         # Group by day
         requests_per_day = defaultdict(int)
         for record in relevant_records:
             day = datetime.fromtimestamp(record.timestamp).date().isoformat()
             requests_per_day[day] += 1
-        
+
         return {
             "total_requests": len(relevant_records),
             "successful_requests": successful,
@@ -161,4 +184,3 @@ class UsageTracker:
             key_id: self.get_usage_stats(key_id, days)
             for key_id in all_key_ids
         }
-

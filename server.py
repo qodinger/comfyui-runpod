@@ -52,8 +52,14 @@ from middleware.auth_middleware import create_auth_middleware
 from middleware.rate_limit_middleware import create_rate_limit_middleware
 from middleware.usage_tracking_middleware import create_usage_tracking_middleware
 
+# Optional comfyui_manager import (only if enabled)
+comfyui_manager = None  # type: ignore
 if args.enable_manager:
-    import comfyui_manager
+    try:
+        import comfyui_manager  # type: ignore  # Optional dependency
+    except ImportError:
+        # comfyui_manager is optional and may not be installed
+        pass
 
 
 def _remove_sensitive_from_queue(queue: list) -> list:
@@ -65,7 +71,7 @@ async def send_socket_catch_exception(function, message):
     try:
         await function(message)
     except (aiohttp.ClientError, aiohttp.ClientPayloadError, ConnectionResetError, BrokenPipeError, ConnectionError) as err:
-        logging.warning("send error: {}".format(err))
+        logging.warning("send error: %s", err)
 
 # Track deprecated paths that have been warned about to only warn once per file
 _deprecated_paths_warned = set()
@@ -80,9 +86,10 @@ async def deprecation_warning(request: web.Request, handler):
         if path not in _deprecated_paths_warned:
             _deprecated_paths_warned.add(path)
             logging.warning(
-                f"[DEPRECATION WARNING] Detected import of deprecated legacy API: {path}. "
-                f"This is likely caused by a custom node extension using outdated APIs. "
-                f"Please update your extensions or contact the extension author for an updated version."
+                "[DEPRECATION WARNING] Detected import of deprecated legacy API: %s. "
+                "This is likely caused by a custom node extension using outdated APIs. "
+                "Please update your extensions or contact the extension author for an updated version.",
+                path
             )
 
     response: web.Response = await handler(request)
@@ -127,7 +134,7 @@ def is_loopback(host):
             return True
         else:
             return False
-    except:
+    except (ValueError, ipaddress.AddressValueError):
         pass
 
     loopback = False
@@ -169,7 +176,7 @@ def create_origin_only_middleware():
 
             if loopback and host_domain is not None and origin_domain is not None and len(host_domain) > 0 and len(origin_domain) > 0:
                 if host_domain != origin_domain:
-                    logging.warning("WARNING: request with non matching host and origin {} != {}, returning 403".format(host_domain, origin_domain))
+                    logging.warning("WARNING: request with non matching host and origin %s != %s, returning 403", host_domain, origin_domain)
                     return web.Response(status=403)
 
         if request.method == "OPTIONS":
@@ -233,7 +240,7 @@ class PromptServer():
         if args.disable_api_nodes:
             middlewares.append(create_block_external_middleware())
 
-        if args.enable_manager:
+        if args.enable_manager and comfyui_manager is not None:
             middlewares.append(comfyui_manager.create_middleware())
 
         # Add API authentication middleware if enabled
@@ -242,7 +249,7 @@ class PromptServer():
             middlewares.append(create_auth_middleware(self.api_key_manager, require_auth=require_auth))
             middlewares.append(create_rate_limit_middleware(self.usage_tracker))
             middlewares.append(create_usage_tracking_middleware(self.usage_tracker))
-            logging.info(f"API authentication enabled (require_auth={require_auth})")
+            logging.info("API authentication enabled (require_auth=%s)", require_auth)
 
         max_upload_size = round(args.max_upload_size * 1024 * 1024)
         self.app = web.Application(client_max_size=max_upload_size, middlewares=middlewares)
@@ -253,7 +260,7 @@ class PromptServer():
             if args.front_end_root is None
             else args.front_end_root
         )
-        logging.info(f"[Prompt Server] web root: {self.web_root}")
+        logging.info("[Prompt Server] web root: %s", self.web_root)
         routes = web.RouteTableDef()
         self.routes = routes
         self.last_node_id = None
@@ -289,7 +296,7 @@ class PromptServer():
 
                 async for msg in ws:
                     if msg.type == aiohttp.WSMsgType.ERROR:
-                        logging.warning('ws connection closed with exception %s' % ws.exception())
+                        logging.warning('ws connection closed with exception %s', ws.exception())
                     elif msg.type == aiohttp.WSMsgType.TEXT:
                         try:
                             data = json.loads(msg.data)
@@ -307,15 +314,15 @@ class PromptServer():
                                 )
 
                                 logging.debug(
-                                    f"Feature flags negotiated for client {sid}: {client_flags}"
+                                    "Feature flags negotiated for client %s: %s", sid, client_flags
                                 )
                             first_message = False
                         except json.JSONDecodeError:
                             logging.warning(
-                                f"Invalid JSON received from client {sid}: {msg.data}"
+                                "Invalid JSON received from client %s: %s", sid, msg.data
                             )
                         except Exception as e:
-                            logging.error(f"Error processing WebSocket message: {e}")
+                            logging.error("Error processing WebSocket message: %s", e)
             finally:
                 self.sockets.pop(sid, None)
                 self.sockets_metadata.pop(sid, None)
@@ -366,12 +373,17 @@ class PromptServer():
             if dir_type is None:
                 dir_type = "input"
 
+            # Initialize type_dir to avoid "possibly uninitialized" error
+            type_dir = None
             if dir_type == "input":
                 type_dir = folder_paths.get_input_directory()
             elif dir_type == "temp":
                 type_dir = folder_paths.get_temp_directory()
             elif dir_type == "output":
                 type_dir = folder_paths.get_output_directory()
+            else:
+                # Default to input directory for unknown types
+                type_dir = folder_paths.get_input_directory()
 
             return type_dir, dir_type
 
@@ -708,7 +720,7 @@ class PromptServer():
                     try:
                         out[x] = node_info(x)
                     except Exception:
-                        logging.error(f"[ERROR] An error occurred while retrieving information for the '{x}' node.")
+                        logging.error("[ERROR] An error occurred while retrieving information for the '%s' node.", x)
                         logging.error(traceback.format_exc())
                 return web.json_response(out)
 
@@ -912,7 +924,7 @@ class PromptServer():
                     response = {"prompt_id": prompt_id, "number": number, "node_errors": valid[3]}
                     return web.json_response(response)
                 else:
-                    logging.warning("invalid prompt: {}".format(valid[1]))
+                    logging.warning("invalid prompt: %s", valid[1])
                     return web.json_response({"error": valid[1], "node_errors": valid[3]}, status=400)
             else:
                 error = {
@@ -954,14 +966,14 @@ class PromptServer():
                 for item in currently_running:
                     # item structure: (number, prompt_id, prompt, extra_data, outputs_to_execute)
                     if item[1] == prompt_id:
-                        logging.info(f"Interrupting prompt {prompt_id}")
+                        logging.info("Interrupting prompt %s", prompt_id)
                         should_interrupt = True
                         break
 
                 if should_interrupt:
                     nodes.interrupt_processing()
                 else:
-                    logging.info(f"Prompt {prompt_id} is not currently running, skipping interrupt")
+                    logging.info("Prompt %s is not currently running, skipping interrupt", prompt_id)
             else:
                 # No prompt_id provided, do a global interrupt
                 logging.info("Global interrupt (no prompt_id specified)")
@@ -1087,7 +1099,7 @@ class PromptServer():
                     "message": "API key created. Save this key - it will not be shown again."
                 })
             except Exception as e:
-                logging.error(f"Error creating API key: {e}")
+                logging.error("Error creating API key: %s", e)
                 return web.json_response(
                     {"error": str(e), "error_code": "KEY_CREATION_FAILED"},
                     status=500
@@ -1256,7 +1268,6 @@ class PromptServer():
         metadata["image_type"] = mimetype
 
         # Serialize metadata as JSON
-        import json
         metadata_json = json.dumps(metadata).encode('utf-8')
         metadata_length = len(metadata_json)
 
@@ -1337,7 +1348,7 @@ class PromptServer():
                 address_print = address
 
             if verbose:
-                logging.info("To see the GUI go to: {}://{}:{}".format(scheme, address_print, port))
+                logging.info("To see the GUI go to: %s://%s:%s", scheme, address_print, port)
 
         if call_on_start is not None:
             call_on_start(scheme, self.address, self.port)

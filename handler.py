@@ -11,7 +11,12 @@ import requests
 from typing import Dict, Any, Optional
 from urllib.parse import urljoin
 
-import runpod
+try:
+    import runpod  # type: ignore  # Only available in RunPod Docker environment
+except ImportError:
+    # runpod is only available in Docker/RunPod environment
+    # This allows the file to be imported locally for testing without errors
+    runpod = None  # type: ignore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -165,7 +170,7 @@ def get_image(prompt_id: str) -> Optional[str]:
         prompt_id: The prompt ID to check
 
     Returns:
-        Image URL or None if not ready
+        Image URL or None if not ready (or on HTTP errors to allow retry)
     """
     url = urljoin(COMFYUI_URL, f"/history/{prompt_id}")
     headers = {}
@@ -173,10 +178,25 @@ def get_image(prompt_id: str) -> Optional[str]:
     if COMFYUI_API_KEY:
         headers["X-API-Key"] = COMFYUI_API_KEY
 
-    response = requests.get(url, headers=headers, timeout=10)
-    response.raise_for_status()
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        # Fixed Bug 3: Catch HTTP errors and return None to allow retry
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        # HTTP errors (404, 500, etc.) - return None to allow retry
+        logger.debug("HTTP error getting image for %s: %s", prompt_id, e)
+        return None
+    except requests.exceptions.RequestException as e:
+        # Network errors - return None to allow retry
+        logger.debug("Request error getting image for %s: %s", prompt_id, e)
+        return None
 
-    history = response.json()
+    try:
+        history = response.json()
+    except (ValueError, KeyError) as e:
+        # Invalid JSON response - return None to allow retry
+        logger.debug("Invalid JSON response for %s: %s", prompt_id, e)
+        return None
 
     if prompt_id in history:
         images = history[prompt_id]
@@ -263,9 +283,18 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         steps = int(input_data.get("steps", 30))
         cfg_scale = float(input_data.get("cfg_scale", 7.5))
         sampler = input_data.get("sampler", "euler_ancestral")
-        seed = input_data.get("seed")
+        # Fixed Bug 4: Convert seed to int or None
+        seed_raw = input_data.get("seed")
+        if seed_raw is not None:
+            try:
+                seed = int(seed_raw)
+            except (ValueError, TypeError):
+                logger.warning("Invalid seed value '%s', using None (random)", seed_raw)
+                seed = None
+        else:
+            seed = None
 
-        logger.info(f"Generating image with prompt: {prompt[:50]}...")
+        logger.info("Generating image with prompt: %s...", prompt[:50] if len(prompt) > 50 else prompt)
 
         # Build workflow
         workflow = build_workflow(
@@ -282,7 +311,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
         # Queue prompt
         prompt_id = queue_prompt(workflow)
-        logger.info(f"Queued prompt: {prompt_id}")
+        logger.info("Queued prompt: %s", prompt_id)
 
         # Wait for image
         image_url = wait_for_image(prompt_id, timeout=GENERATION_TIMEOUT)
@@ -294,7 +323,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "status": "error"
             }
 
-        logger.info(f"Image generated: {image_url}")
+        logger.info("Image generated: %s", image_url)
 
         return {
             "output": {
@@ -315,26 +344,27 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     except TimeoutError as e:
-        logger.error(f"Timeout: {e}")
+        logger.error("Timeout: %s", e)
         return {
             "error": str(e),
             "status": "timeout"
         }
     except requests.exceptions.RequestException as e:
-        logger.error(f"Request error: {e}")
+        logger.error("Request error: %s", e)
         return {
-            "error": f"ComfyUI connection error: {str(e)}",
+            "error": f"ComfyUI connection error: {e}",
             "status": "error"
         }
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error("Unexpected error: %s", e, exc_info=True)
         return {
-            "error": f"Unexpected error: {str(e)}",
+            "error": f"Unexpected error: {e}",
             "status": "error"
         }
 
 
 # Register handler with RunPod
 if __name__ == "__main__":
+    if runpod is None:
+        raise ImportError("runpod package is required. Install with: pip install runpod")
     runpod.serverless.start({"handler": handler})
-
