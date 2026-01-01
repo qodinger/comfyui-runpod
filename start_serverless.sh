@@ -27,5 +27,5 @@ done
 
 # Start RunPod serverless handler
 echo "🔧 Starting RunPod serverless handler..."
-exec python -m runpod.serverless --handler handler.handler
+exec python handler.py
 

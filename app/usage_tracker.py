@@ -125,7 +125,7 @@ class UsageTracker:
 
         total = 0
         for hour, count in self.hourly_counts[key_id].items():
-            if hour >= cutoff_hour:  # Fixed: use >= to include cutoff hour
+            if hour > cutoff_hour:  # Fixed: use > to only include current hour when hours=1
                 total += count
 
         return total
