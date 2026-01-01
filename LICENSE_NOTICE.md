@@ -27,6 +27,7 @@ See [LICENSE](LICENSE) file for the full license text.
 ## Attribution
 
 This project is based on:
+
 - **ComfyUI** by comfyanonymous
   - Repository: https://github.com/comfyanonymous/ComfyUI
   - License: GNU GPL v3.0
@@ -34,6 +35,7 @@ This project is based on:
 ## Your Modifications
 
 Your custom additions include:
+
 - API key authentication system
 - Rate limiting middleware
 - Usage tracking system
@@ -47,11 +49,13 @@ These modifications are also licensed under GPL-3.0.
 **Yes, you can use this commercially!**
 
 GPL-3.0 allows commercial use. You can:
+
 - Charge for API access
 - Offer paid services
 - Run a business using this code
 
 **However**, if you distribute the software, you must:
+
 - Provide source code to users
 - License it under GPL-3.0
 - Include the LICENSE file
@@ -59,6 +63,7 @@ GPL-3.0 allows commercial use. You can:
 ## Private Use
 
 If you only use this privately (not distributing to others):
+
 - You can modify freely
 - No obligation to share source code
 - Can use commercially without restrictions
@@ -66,6 +71,7 @@ If you only use this privately (not distributing to others):
 ## Distribution
 
 If you share/distribute this project:
+
 - Must include LICENSE file ✅
 - Must make source code available ✅
 - Must include copyright notices ✅
@@ -76,6 +82,7 @@ If you share/distribute this project:
 **Your project is perfectly legal and compliant!**
 
 You've:
+
 - ✅ Kept the LICENSE file
 - ✅ Based on open-source ComfyUI
 - ✅ Added your own modifications
@@ -87,4 +94,3 @@ You've:
 ---
 
 **For legal questions, consult a lawyer. This is informational only.**
-

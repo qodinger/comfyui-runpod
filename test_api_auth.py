@@ -8,7 +8,6 @@ Make sure ComfyUI is running with --enable-api-auth or --require-api-auth
 
 import requests
 import time
-import json
 import sys
 from typing import Dict, Optional
 
@@ -73,7 +72,7 @@ def test_create_api_key() -> Optional[Dict]:
             },
             timeout=10
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             if "api_key" in data and "key_id" in data:
@@ -99,7 +98,7 @@ def test_list_api_keys() -> bool:
     print_test("List API Keys")
     try:
         response = requests.get(f"{BASE_URL}/api/keys", timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             if "keys" in data and isinstance(data["keys"], list):
@@ -121,7 +120,7 @@ def test_get_key_details(key_id: str) -> bool:
     print_test("Get API Key Details")
     try:
         response = requests.get(f"{BASE_URL}/api/keys/{key_id}", timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             if "key_id" in data and "usage_stats" in data:
@@ -152,7 +151,7 @@ def test_api_key_authentication(api_key: str) -> bool:
             headers={"X-API-Key": api_key},
             timeout=10
         )
-        
+
         if response.status_code == 200:
             print_success("Authentication with X-API-Key header works")
             return True
@@ -178,7 +177,7 @@ def test_usage_tracking(api_key: str) -> bool:
             headers={"X-API-Key": api_key},
             timeout=10
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             if "usage_stats" in data:
@@ -208,21 +207,21 @@ def test_rate_limiting(api_key: str, key_id: str) -> bool:
         if details_response.status_code != 200:
             print_error("Could not get key details for rate limit test")
             return False
-        
+
         rate_limit = details_response.json().get("rate_limit", 10)
         print(f"  Rate limit: {rate_limit} requests/hour")
-        
+
         # Make requests up to the limit
         headers = {"X-API-Key": api_key}
         rate_limit_hit = False
-        
+
         for i in range(rate_limit + 2):  # Go slightly over limit
             response = requests.get(
                 f"{BASE_URL}/api/usage",
                 headers=headers,
                 timeout=10
             )
-            
+
             # Check rate limit headers
             if "X-RateLimit-Limit" in response.headers:
                 remaining = int(response.headers.get("X-RateLimit-Remaining", -1))
@@ -238,9 +237,9 @@ def test_rate_limiting(api_key: str, key_id: str) -> bool:
                         break
                     else:
                         print_warning(f"  Request {i+1}: Expected 429, got {response.status_code}")
-            
+
             time.sleep(0.1)  # Small delay between requests
-        
+
         if rate_limit_hit:
             print_success("Rate limiting is working correctly")
             return True
@@ -264,7 +263,7 @@ def test_update_api_key(key_id: str) -> bool:
             },
             timeout=10
         )
-        
+
         if response.status_code == 200:
             print_success("API key updated")
             return True
@@ -285,7 +284,7 @@ def test_invalid_key() -> bool:
             headers={"X-API-Key": "comfy_invalid_key_12345"},
             timeout=10
         )
-        
+
         if response.status_code == 401:
             print_success("Invalid keys are properly rejected")
             return True
@@ -306,7 +305,7 @@ def test_public_endpoints() -> bool:
             "/features",
             "/object_info",
         ]
-        
+
         all_working = True
         for endpoint in public_endpoints:
             response = requests.get(f"{BASE_URL}{endpoint}", timeout=10)
@@ -315,7 +314,7 @@ def test_public_endpoints() -> bool:
             else:
                 print_error(f"  {endpoint} returned {response.status_code}")
                 all_working = False
-        
+
         return all_working
     except Exception as e:
         print_error(f"Error testing public endpoints: {e}")
@@ -327,7 +326,7 @@ def test_delete_api_key(key_id: str) -> bool:
     print_test("Delete API Key")
     try:
         response = requests.delete(f"{BASE_URL}/api/keys/{key_id}", timeout=10)
-        
+
         if response.status_code == 200:
             print_success("API key deleted")
             return True
@@ -344,67 +343,67 @@ def main():
     print(f"\n{Colors.BLUE}{'='*60}")
     print("ComfyUI API Authentication Test Suite")
     print(f"{'='*60}{Colors.RESET}\n")
-    
+
     results = {}
-    
+
     # Test 1: Server connection
     if not test_server_running():
         print_error("\nCannot proceed without server connection")
         sys.exit(1)
-    
+
     # Test 2: Public endpoints
     results["public_endpoints"] = test_public_endpoints()
-    
+
     # Test 3: Create API key
     key_data = test_create_api_key()
     if not key_data:
         print_error("\nCannot proceed without API key")
         sys.exit(1)
-    
+
     api_key = key_data["api_key"]
     key_id = key_data["key_id"]
     results["create_key"] = True
-    
+
     # Test 4: List keys
     results["list_keys"] = test_list_api_keys()
-    
+
     # Test 5: Get key details
     results["get_key_details"] = test_get_key_details(key_id)
-    
+
     # Test 6: Authentication
     results["authentication"] = test_api_key_authentication(api_key)
-    
+
     # Test 7: Usage tracking
     results["usage_tracking"] = test_usage_tracking(api_key)
-    
+
     # Test 8: Rate limiting
     results["rate_limiting"] = test_rate_limiting(api_key, key_id)
-    
+
     # Test 9: Update key
     results["update_key"] = test_update_api_key(key_id)
-    
+
     # Test 10: Invalid key rejection
     results["invalid_key"] = test_invalid_key()
-    
+
     # Test 11: Delete key (cleanup)
     results["delete_key"] = test_delete_api_key(key_id)
-    
+
     # Summary
     print(f"\n{Colors.BLUE}{'='*60}")
     print("Test Summary")
     print(f"{'='*60}{Colors.RESET}\n")
-    
+
     passed = sum(1 for v in results.values() if v)
     total = len(results)
-    
+
     for test_name, result in results.items():
         if result:
             print_success(f"{test_name}")
         else:
             print_error(f"{test_name}")
-    
+
     print(f"\n{Colors.BLUE}Results: {passed}/{total} tests passed{Colors.RESET}\n")
-    
+
     if passed == total:
         print_success("All tests passed! 🎉")
         return 0

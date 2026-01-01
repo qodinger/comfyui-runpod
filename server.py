@@ -1003,7 +1003,7 @@ class PromptServer():
         self.custom_node_manager.add_routes(self.routes, self.app, nodes.LOADED_MODULE_DIRS.items())
         self.subgraph_manager.add_routes(self.routes, nodes.LOADED_MODULE_DIRS.items())
         self.app.add_subapp('/internal', self.internal_routes.get_app())
-        
+
         # Add API key management routes
         self._add_api_key_routes()
 
@@ -1072,13 +1072,13 @@ class PromptServer():
                 name = data.get("name", "Unnamed Key")
                 rate_limit = data.get("rate_limit", 100)
                 metadata = data.get("metadata", {})
-                
+
                 key_id, plaintext_key = self.api_key_manager.generate_key(
                     name=name,
                     rate_limit=rate_limit,
                     metadata=metadata
                 )
-                
+
                 return web.json_response({
                     "key_id": key_id,
                     "api_key": plaintext_key,  # Only shown once!
@@ -1104,16 +1104,16 @@ class PromptServer():
             """Get details of a specific API key"""
             key_id = request.match_info.get("key_id")
             key = self.api_key_manager.get_key(key_id)
-            
+
             if not key:
                 return web.json_response(
                     {"error": "API key not found", "error_code": "KEY_NOT_FOUND"},
                     status=404
                 )
-            
+
             # Get usage stats
             stats = self.usage_tracker.get_usage_stats(key_id, days=30)
-            
+
             return web.json_response({
                 **key.to_dict(),
                 "usage_stats": stats
@@ -1124,20 +1124,20 @@ class PromptServer():
             """Update an API key"""
             key_id = request.match_info.get("key_id")
             data = await request.json()
-            
+
             success = self.api_key_manager.update_key(
                 key_id=key_id,
                 name=data.get("name"),
                 rate_limit=data.get("rate_limit"),
                 is_active=data.get("is_active")
             )
-            
+
             if not success:
                 return web.json_response(
                     {"error": "API key not found", "error_code": "KEY_NOT_FOUND"},
                     status=404
                 )
-            
+
             return web.json_response({"message": "API key updated"})
 
         @self.routes.delete("/keys/{key_id}")
@@ -1145,13 +1145,13 @@ class PromptServer():
             """Delete an API key"""
             key_id = request.match_info.get("key_id")
             success = self.api_key_manager.delete_key(key_id)
-            
+
             if not success:
                 return web.json_response(
                     {"error": "API key not found", "error_code": "KEY_NOT_FOUND"},
                     status=404
                 )
-            
+
             return web.json_response({"message": "API key deleted"})
 
         @self.routes.get("/usage")
@@ -1163,10 +1163,10 @@ class PromptServer():
                     {"error": "API key required", "error_code": "AUTH_REQUIRED"},
                     status=401
                 )
-            
+
             days = int(request.rel_url.query.get("days", 30))
             stats = self.usage_tracker.get_usage_stats(api_key.key_id, days=days)
-            
+
             return web.json_response({
                 "key_id": api_key.key_id,
                 "key_name": api_key.name,
@@ -1179,7 +1179,7 @@ class PromptServer():
             # This could be protected with admin authentication in the future
             days = int(request.rel_url.query.get("days", 30))
             all_stats = self.usage_tracker.get_all_usage_stats(days=days)
-            
+
             return web.json_response({
                 "usage_stats": all_stats
             })
