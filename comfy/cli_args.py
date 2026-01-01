@@ -219,6 +219,8 @@ parser.add_argument(
 parser.add_argument("--user-directory", type=is_valid_directory, default=None, help="Set the ComfyUI user directory with an absolute path. Overrides --base-directory.")
 
 parser.add_argument("--enable-compress-response-body", action="store_true", help="Enable compressing response body.")
+parser.add_argument("--enable-api-auth", action="store_true", help="Enable API key authentication for /api/* endpoints. API keys are required when enabled.")
+parser.add_argument("--require-api-auth", action="store_true", help="Require API key authentication for all API endpoints. Overrides --enable-api-auth.")
 
 parser.add_argument(
     "--comfy-api-base",

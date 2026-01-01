@@ -1,0 +1,78 @@
+# Docker ignore file
+# Exclude unnecessary files from Docker build
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+*.log
+logs/
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Output files (will be generated in container)
+output/
+*.png
+*.jpg
+*.jpeg
+
+# User data (will be generated in container)
+user/api_keys.json
+user/api_usage.json
+
+# Scripts (not needed in container)
+*.sh
+!start.sh
+
+# Examples
+script_examples/
+examples/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Local config
+.env
+.env.local
+*.local
+

@@ -1,0 +1,49 @@
+# RunPod Serverless Configuration
+# This file configures your serverless worker for RunPod Hub
+
+name: comfyui-with-auth
+description: ComfyUI image generation with API authentication, rate limiting, and usage tracking
+version: 1.0.0
+
+# Container configuration
+container:
+  image: your-dockerhub-username/comfyui-runpod:latest
+  # Or use: runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel as base
+
+# GPU requirements
+gpu:
+  type: NVIDIA
+  count: 1
+  memory: 24GB  # Adjust based on your model requirements
+
+# Environment variables
+env:
+  - COMFYUI_URL=http://localhost:8188
+  - GENERATION_TIMEOUT=300
+  - POLL_INTERVAL=1.0
+  # Add your API keys or secrets here if needed
+  # - COMFYUI_API_KEY=your_key_here
+
+# Volumes (for persistent storage)
+volumes:
+  - /workspace/models:/app/models  # Model storage
+  - /workspace/output:/app/output  # Generated images
+  - /workspace/user:/app/user      # User data and API keys
+
+# Network
+network:
+  ports:
+    - 8188:8188  # ComfyUI port
+
+# Health check
+healthcheck:
+  endpoint: /system_stats
+  interval: 30
+  timeout: 10
+
+# Scaling
+scaling:
+  min_instances: 0
+  max_instances: 10
+  target_utilization: 70
+

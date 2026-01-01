@@ -45,6 +45,13 @@ from protocol import BinaryEventTypes
 # Import cache control middleware
 from middleware.cache_middleware import cache_control
 
+# Import API authentication components
+from app.api_key_manager import APIKeyManager
+from app.usage_tracker import UsageTracker
+from middleware.auth_middleware import create_auth_middleware
+from middleware.rate_limit_middleware import create_rate_limit_middleware
+from middleware.usage_tracking_middleware import create_usage_tracking_middleware
+
 if args.enable_manager:
     import comfyui_manager
 
@@ -210,6 +217,10 @@ class PromptServer():
         self.client_session:Optional[aiohttp.ClientSession] = None
         self.number = 0
 
+        # Initialize API authentication components
+        self.api_key_manager = APIKeyManager()
+        self.usage_tracker = UsageTracker()
+
         middlewares = [cache_control, deprecation_warning]
         if args.enable_compress_response_body:
             middlewares.append(compress_body)
@@ -224,6 +235,14 @@ class PromptServer():
 
         if args.enable_manager:
             middlewares.append(comfyui_manager.create_middleware())
+
+        # Add API authentication middleware if enabled
+        if args.enable_api_auth or args.require_api_auth:
+            require_auth = args.require_api_auth
+            middlewares.append(create_auth_middleware(self.api_key_manager, require_auth=require_auth))
+            middlewares.append(create_rate_limit_middleware(self.usage_tracker))
+            middlewares.append(create_usage_tracking_middleware(self.usage_tracker))
+            logging.info(f"API authentication enabled (require_auth={require_auth})")
 
         max_upload_size = round(args.max_upload_size * 1024 * 1024)
         self.app = web.Application(client_max_size=max_upload_size, middlewares=middlewares)
@@ -984,6 +1003,9 @@ class PromptServer():
         self.custom_node_manager.add_routes(self.routes, self.app, nodes.LOADED_MODULE_DIRS.items())
         self.subgraph_manager.add_routes(self.routes, nodes.LOADED_MODULE_DIRS.items())
         self.app.add_subapp('/internal', self.internal_routes.get_app())
+        
+        # Add API key management routes
+        self._add_api_key_routes()
 
         # Prefix every route with /api for easier matching for delegation.
         # This is very useful for frontend dev server, which need to forward
@@ -1039,6 +1061,128 @@ class PromptServer():
         self.app.add_routes([
             web.static('/', self.web_root),
         ])
+
+    def _add_api_key_routes(self):
+        """Add API key management routes"""
+        @self.routes.post("/keys")
+        async def create_api_key(request):
+            """Create a new API key"""
+            try:
+                data = await request.json()
+                name = data.get("name", "Unnamed Key")
+                rate_limit = data.get("rate_limit", 100)
+                metadata = data.get("metadata", {})
+                
+                key_id, plaintext_key = self.api_key_manager.generate_key(
+                    name=name,
+                    rate_limit=rate_limit,
+                    metadata=metadata
+                )
+                
+                return web.json_response({
+                    "key_id": key_id,
+                    "api_key": plaintext_key,  # Only shown once!
+                    "name": name,
+                    "rate_limit": rate_limit,
+                    "message": "API key created. Save this key - it will not be shown again."
+                })
+            except Exception as e:
+                logging.error(f"Error creating API key: {e}")
+                return web.json_response(
+                    {"error": str(e), "error_code": "KEY_CREATION_FAILED"},
+                    status=500
+                )
+
+        @self.routes.get("/keys")
+        async def list_api_keys(request):
+            """List all API keys (without showing the actual keys)"""
+            keys = self.api_key_manager.list_keys()
+            return web.json_response({"keys": keys})
+
+        @self.routes.get("/keys/{key_id}")
+        async def get_api_key(request):
+            """Get details of a specific API key"""
+            key_id = request.match_info.get("key_id")
+            key = self.api_key_manager.get_key(key_id)
+            
+            if not key:
+                return web.json_response(
+                    {"error": "API key not found", "error_code": "KEY_NOT_FOUND"},
+                    status=404
+                )
+            
+            # Get usage stats
+            stats = self.usage_tracker.get_usage_stats(key_id, days=30)
+            
+            return web.json_response({
+                **key.to_dict(),
+                "usage_stats": stats
+            })
+
+        @self.routes.patch("/keys/{key_id}")
+        async def update_api_key(request):
+            """Update an API key"""
+            key_id = request.match_info.get("key_id")
+            data = await request.json()
+            
+            success = self.api_key_manager.update_key(
+                key_id=key_id,
+                name=data.get("name"),
+                rate_limit=data.get("rate_limit"),
+                is_active=data.get("is_active")
+            )
+            
+            if not success:
+                return web.json_response(
+                    {"error": "API key not found", "error_code": "KEY_NOT_FOUND"},
+                    status=404
+                )
+            
+            return web.json_response({"message": "API key updated"})
+
+        @self.routes.delete("/keys/{key_id}")
+        async def delete_api_key(request):
+            """Delete an API key"""
+            key_id = request.match_info.get("key_id")
+            success = self.api_key_manager.delete_key(key_id)
+            
+            if not success:
+                return web.json_response(
+                    {"error": "API key not found", "error_code": "KEY_NOT_FOUND"},
+                    status=404
+                )
+            
+            return web.json_response({"message": "API key deleted"})
+
+        @self.routes.get("/usage")
+        async def get_usage(request):
+            """Get usage statistics for the authenticated API key"""
+            api_key = request.get('api_key')
+            if not api_key:
+                return web.json_response(
+                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                    status=401
+                )
+            
+            days = int(request.rel_url.query.get("days", 30))
+            stats = self.usage_tracker.get_usage_stats(api_key.key_id, days=days)
+            
+            return web.json_response({
+                "key_id": api_key.key_id,
+                "key_name": api_key.name,
+                "usage_stats": stats
+            })
+
+        @self.routes.get("/usage/all")
+        async def get_all_usage(request):
+            """Get usage statistics for all API keys (admin endpoint)"""
+            # This could be protected with admin authentication in the future
+            days = int(request.rel_url.query.get("days", 30))
+            all_stats = self.usage_tracker.get_all_usage_stats(days=days)
+            
+            return web.json_response({
+                "usage_stats": all_stats
+            })
 
     def get_queue_info(self):
         prompt_info = {}
