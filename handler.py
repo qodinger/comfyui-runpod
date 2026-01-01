@@ -4,7 +4,6 @@ This handler wraps ComfyUI API for RunPod serverless deployment.
 """
 
 import os
-import json
 import time
 import uuid
 import logging
