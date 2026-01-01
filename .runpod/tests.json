@@ -40,7 +40,7 @@
     }
   ],
   "config": {
-    "gpuTypeId": "NVIDIA GeForce RTX 3090",
+    "gpuTypeId": "RTX_A4000",
     "gpuCount": 1,
     "env": [
       {
