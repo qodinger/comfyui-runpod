@@ -57,6 +57,17 @@
     ],
     "env": [
       {
+        "key": "HF_TOKEN",
+        "input": {
+          "name": "HuggingFace Token",
+          "type": "string",
+          "description": "HuggingFace access token for downloading gated models. Get yours at https://huggingface.co/settings/tokens",
+          "default": "",
+          "required": true,
+          "secret": true
+        }
+      },
+      {
         "key": "COMFYUI_URL",
         "value": "http://localhost:8188"
       },
