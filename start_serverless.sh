@@ -56,6 +56,31 @@ if [ ! -L "$APP_MODELS_PATH" ]; then
   fi
 fi
 
+# If we have a persistent prefix, ensure RunPod state files are stored there
+# RunPod handler writes `.runpod_jobs.pkl` and a `.lock` in the app root; when /app
+# is ephemeral this causes "No space left on device". Link them to persistent volume
+if [ "$PERSIST_PREFIX" != "/app" ] && [ -d "$PERSIST_PREFIX" ]; then
+  # create persistent placeholders
+  touch "$PERSIST_PREFIX/.runpod_jobs.pkl" || true
+  touch "$PERSIST_PREFIX/.runpod_jobs.pkl.lock" || true
+
+  # symlink the main state file
+  if [ -e "/app/.runpod_jobs.pkl" ] && [ ! -L "/app/.runpod_jobs.pkl" ]; then
+    echo "⚠️ /app/.runpod_jobs.pkl exists and is not a symlink. Leaving as-is."
+  else
+    ln -sf "$PERSIST_PREFIX/.runpod_jobs.pkl" /app/.runpod_jobs.pkl || true
+    echo "🔗 Linked /app/.runpod_jobs.pkl -> $PERSIST_PREFIX/.runpod_jobs.pkl"
+  fi
+
+  # symlink the lock file too
+  if [ -e "/app/.runpod_jobs.pkl.lock" ] && [ ! -L "/app/.runpod_jobs.pkl.lock" ]; then
+    echo "⚠️ /app/.runpod_jobs.pkl.lock exists and is not a symlink. Leaving as-is."
+  else
+    ln -sf "$PERSIST_PREFIX/.runpod_jobs.pkl.lock" /app/.runpod_jobs.pkl.lock || true
+    echo "🔗 Linked /app/.runpod_jobs.pkl.lock -> $PERSIST_PREFIX/.runpod_jobs.pkl.lock"
+  fi
+fi
+
 # Helper: check free space (in KB) for DEST_DIR filesystem
 avail_kb=$(df -k --output=avail "$DEST_DIR" | tail -1 | tr -d '[:space:]') || avail_kb=0
 # Require at least 5 GB free for large models (approx). Adjust if you know smaller/larger.
