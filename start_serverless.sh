@@ -106,13 +106,13 @@ else
     # Download using HF_TOKEN if present; prefer huggingface-hub but wget is fine here
     if [ -n "$HF_TOKEN" ]; then
       echo "⬇️ Downloading $MODEL_NAME from huggingface.co/$HF_REPO (auth provided)..."
-      wget --header="Authorization: Bearer $HF_TOKEN" --progress=bar:force -O "$FINAL_PATH" "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE" || {
+      wget --header="Authorization: Bearer $HF_TOKEN" --progress=bar:force -O "$FINAL_PATH" "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE?download=true" || {
         echo "❌ Download failed (wget returned non-zero)."
         rm -f "$FINAL_PATH" || true
       }
     else
       echo "⬇️ Downloading $MODEL_NAME from huggingface.co/$HF_REPO (no token)..."
-      wget --progress=bar:force -O "$FINAL_PATH" "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE" || {
+      wget --progress=bar:force -O "$FINAL_PATH" "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE?download=true" || {
         echo "❌ Download failed (no token or network error)."
         rm -f "$FINAL_PATH" || true
       }
