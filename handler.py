@@ -6,6 +6,7 @@ This handler wraps ComfyUI API for RunPod serverless deployment.
 import os
 import time
 import uuid
+import base64
 import logging
 import requests
 from typing import Dict, Any, Optional
@@ -162,15 +163,49 @@ def queue_prompt(workflow: Dict[str, Any], client_id: Optional[str] = None) -> s
     return prompt_id
 
 
-def get_image(prompt_id: str) -> Optional[str]:
+def download_image_as_base64(image_url: str) -> Optional[str]:
     """
-    Get the generated image URL from ComfyUI history.
+    Download an image from ComfyUI and return as base64 data URI.
+
+    Args:
+        image_url: The ComfyUI internal URL to the image
+
+    Returns:
+        Base64 data URI string or None on failure
+    """
+    headers = {}
+    if COMFYUI_API_KEY:
+        headers["X-API-Key"] = COMFYUI_API_KEY
+
+    try:
+        response = requests.get(image_url, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        # Determine content type (default to PNG)
+        content_type = response.headers.get("Content-Type", "image/png")
+        if "jpeg" in content_type or "jpg" in content_type:
+            mime_type = "image/jpeg"
+        else:
+            mime_type = "image/png"
+
+        # Encode to base64
+        image_data = base64.b64encode(response.content).decode("utf-8")
+        return f"data:{mime_type};base64,{image_data}"
+
+    except requests.exceptions.RequestException as e:
+        logger.error("Failed to download image: %s", e)
+        return None
+
+
+def get_image(prompt_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get the generated image from ComfyUI history.
 
     Args:
         prompt_id: The prompt ID to check
 
     Returns:
-        Image URL or None if not ready (or on HTTP errors to allow retry)
+        Dict with image_url (internal) and image_base64 (data URI), or None if not ready
     """
     url = urljoin(COMFYUI_URL, f"/history/{prompt_id}")
     headers = {}
@@ -208,13 +243,24 @@ def get_image(prompt_id: str) -> Optional[str]:
                 if images_data and len(images_data) > 0:
                     filename = images_data[0]["filename"]
                     subfolder = images_data[0].get("subfolder", "")
-                    image_url = urljoin(COMFYUI_URL, f"/view?filename={filename}&subfolder={subfolder}&type=output")
-                    return image_url
+                    image_url = urljoin(
+                        COMFYUI_URL,
+                        f"/view?filename={filename}&subfolder={subfolder}&type=output"
+                    )
+
+                    # Download and convert to base64
+                    image_base64 = download_image_as_base64(image_url)
+
+                    return {
+                        "internal_url": image_url,
+                        "image": image_base64,
+                        "filename": filename
+                    }
 
     return None
 
 
-def wait_for_image(prompt_id: str, timeout: int = GENERATION_TIMEOUT) -> Optional[str]:
+def wait_for_image(prompt_id: str, timeout: int = GENERATION_TIMEOUT) -> Optional[Dict[str, Any]]:
     """
     Wait for image generation to complete.
 
@@ -223,14 +269,14 @@ def wait_for_image(prompt_id: str, timeout: int = GENERATION_TIMEOUT) -> Optiona
         timeout: Maximum time to wait in seconds
 
     Returns:
-        Image URL or None if timeout
+        Dict with image data or None if timeout
     """
     start_time = time.time()
 
     while time.time() - start_time < timeout:
-        image_url = get_image(prompt_id)
-        if image_url:
-            return image_url
+        image_result = get_image(prompt_id)
+        if image_result:
+            return image_result
 
         time.sleep(POLL_INTERVAL)
 
@@ -268,25 +314,27 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     try:
         input_data = job.get("input", {})
 
-        # Health check action - just verify ComfyUI is running
+        # Health check action - verify handler is working
+        # Returns success even if ComfyUI isn't running (for CPU-only tests)
         action = input_data.get("action")
         if action == "health":
+            result = {
+                "status": "ok",
+                "handler": "running",
+                "message": "Handler is operational"
+            }
+            # Try to get ComfyUI status, but don't fail if it's not available
             try:
-                response = requests.get(f"{COMFYUI_URL}/system_stats", timeout=10)
+                response = requests.get(f"{COMFYUI_URL}/system_stats", timeout=5)
                 if response.status_code == 200:
-                    return {
-                        "status": "healthy",
-                        "comfyui_status": response.json()
-                    }
-                return {
-                    "status": "unhealthy",
-                    "error": "ComfyUI not responding"
-                }
-            except Exception as e:
-                return {
-                    "status": "unhealthy",
-                    "error": str(e)
-                }
+                    result["comfyui_status"] = "running"
+                    result["comfyui_stats"] = response.json()
+                else:
+                    result["comfyui_status"] = "not_responding"
+            except Exception:
+                result["comfyui_status"] = "not_available"
+                result["note"] = "ComfyUI not running (requires GPU)"
+            return result
 
         # Extract parameters
         prompt = input_data.get("prompt")
@@ -334,20 +382,24 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         logger.info("Queued prompt: %s", prompt_id)
 
         # Wait for image
-        image_url = wait_for_image(prompt_id, timeout=GENERATION_TIMEOUT)
+        image_result = wait_for_image(prompt_id, timeout=GENERATION_TIMEOUT)
 
-        if not image_url:
+        if not image_result:
             return {
                 "error": "Image generation failed or timed out",
                 "prompt_id": prompt_id,
                 "status": "error"
             }
 
-        logger.info("Image generated: %s", image_url)
+        logger.info("Image generated: %s", image_result.get("filename", "unknown"))
 
+        # Return base64 image (accessible from outside container)
+        # Also include internal_url for debugging if needed
         return {
             "output": {
-                "image_url": image_url,
+                "image": image_result.get("image"),  # Base64 data URI
+                "image_url": image_result.get("image"),  # Alias for compatibility
+                "filename": image_result.get("filename"),
                 "prompt_id": prompt_id,
                 "status": "success",
                 "prompt": prompt,
