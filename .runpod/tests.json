@@ -1,8 +1,16 @@
 {
-  "tests": [],
+  "tests": [
+    {
+      "name": "health_check",
+      "input": {
+        "action": "health"
+      },
+      "timeout": 30000
+    }
+  ],
   "config": {
-    "gpuCount": 1,
-    "containerDiskInGb": 50,
+    "cpuFlavor": "cpu2-mem4",
+    "containerDiskInGb": 20,
     "env": [
       {
         "key": "COMFYUI_URL",
