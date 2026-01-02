@@ -9,16 +9,16 @@ echo "🚀 Starting ComfyUI Serverless Worker..."
 # Check if we have a GPU available
 if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
     echo "✅ GPU detected, starting ComfyUI..."
-    
+
     # Start ComfyUI in background
     echo "📡 Starting ComfyUI server..."
-    python main.py --listen 0.0.0.0 --port 8188 --enable-api-auth &
+    python main.py --listen 0.0.0.0 --port 8188 &
     COMFYUI_PID=$!
-    
+
     # Wait for ComfyUI to be ready
     echo "⏳ Waiting for ComfyUI to start..."
     for i in {1..60}; do
-      if curl -f http://localhost:8188/system_stats > /dev/null 2>&1; then
+      if curl -f http://127.0.0.1:8188/ > /dev/null 2>&1; then
         echo "✅ ComfyUI is ready!"
         break
       fi
@@ -29,7 +29,7 @@ if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
     done
 else
     echo "⚠️ No GPU detected (CPU-only mode)"
-    echo "   ComfyUI requires GPU - running handler in health-check-only mode"
+    echo "   ComfyUI requires GPU - handler will fail without GPU"
 fi
 
 # Start RunPod serverless handler

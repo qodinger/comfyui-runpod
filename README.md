@@ -40,31 +40,83 @@ A production-ready ComfyUI deployment for RunPod serverless with API authenticat
 
 ## API Usage
 
-### Authentication
+### RunPod Serverless API
 
-API keys can be passed via:
+Send requests to your RunPod endpoint with workflow JSON:
+
+```bash
+curl -X POST https://api.runpod.ai/v2/YOUR_ENDPOINT_ID/run \
+  -H "Authorization: Bearer YOUR_RUNPOD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "workflow": {
+        "3": {
+          "inputs": {
+            "seed": 12345,
+            "steps": 20,
+            "cfg": 7,
+            "sampler_name": "euler_ancestral",
+            "scheduler": "normal",
+            "denoise": 1,
+            "model": ["4", 0],
+            "positive": ["6", 0],
+            "negative": ["7", 0],
+            "latent_image": ["5", 0]
+          },
+          "class_type": "KSampler"
+        },
+        "4": {
+          "inputs": { "ckpt_name": "AnythingXL_xl.safetensors" },
+          "class_type": "CheckpointLoaderSimple"
+        },
+        "5": {
+          "inputs": { "width": 512, "height": 512, "batch_size": 1 },
+          "class_type": "EmptyLatentImage"
+        },
+        "6": {
+          "inputs": { "text": "a beautiful sunset", "clip": ["4", 1] },
+          "class_type": "CLIPTextEncode"
+        },
+        "7": {
+          "inputs": { "text": "low quality", "clip": ["4", 1] },
+          "class_type": "CLIPTextEncode"
+        },
+        "8": {
+          "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+          "class_type": "VAEDecode"
+        },
+        "9": {
+          "inputs": { "filename_prefix": "ComfyUI", "images": ["8", 0] },
+          "class_type": "SaveImage"
+        }
+      }
+    }
+  }'
+```
+
+### Response Format
+
+Images are returned as base64 or S3 URLs (if bucket configured):
+
+```json
+{
+  "images": [
+    {
+      "filename": "ComfyUI_00001_.png",
+      "type": "base64",
+      "data": "iVBORw0KGgo..."
+    }
+  ]
+}
+```
+
+### ComfyUI Local API
+
+When running locally, API keys can be passed via:
 
 - Header: `X-API-Key: your-api-key`
 - Header: `Authorization: Bearer your-api-key`
-
-### API Endpoints
-
-**Key Management:**
-
-- `POST /api/keys` - Create new API key
-- `GET /api/keys` - List all API keys
-- `GET /api/keys/{key_id}` - Get key details with usage stats
-- `PATCH /api/keys/{key_id}` - Update key (name, rate_limit, is_active)
-- `DELETE /api/keys/{key_id}` - Delete API key
-- `GET /api/usage/{key_id}` - Get usage statistics
-
-**Image Generation:**
-
-- `POST /api/prompt` - Generate images using ComfyUI workflows
-- `GET /api/history` - Get generation history
-- `POST /api/queue` - Queue generation tasks
-
-See API documentation at `/docs` endpoint when server is running.
 
 ## Configuration
 
