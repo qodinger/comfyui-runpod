@@ -22,6 +22,9 @@ alembic
 SQLAlchemy
 av>=14.2.0
 
+# Hugging Face helper
+huggingface-hub
+
 #non essential dependencies:
 kornia>=0.7.1
 spandrel
