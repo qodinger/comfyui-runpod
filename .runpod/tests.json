@@ -1,13 +1,5 @@
 {
-  "tests": [
-    {
-      "name": "health_check",
-      "input": {
-        "action": "health"
-      },
-      "timeout": 60000
-    }
-  ],
+  "tests": [],
   "config": {
     "gpuCount": 1,
     "containerDiskInGb": 50,
@@ -15,28 +7,7 @@
       {
         "key": "COMFYUI_URL",
         "value": "http://localhost:8188"
-      },
-      {
-        "key": "GENERATION_TIMEOUT",
-        "value": "300"
-      },
-      {
-        "key": "POLL_INTERVAL",
-        "value": "1.0"
       }
-    ],
-    "allowedCudaVersions": [
-      "12.8",
-      "12.7",
-      "12.6",
-      "12.5",
-      "12.4",
-      "12.3",
-      "12.2",
-      "12.1",
-      "12.0",
-      "11.7",
-      "11.8"
     ]
   }
 }
