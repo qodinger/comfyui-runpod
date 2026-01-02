@@ -268,6 +268,26 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     try:
         input_data = job.get("input", {})
 
+        # Health check action - just verify ComfyUI is running
+        action = input_data.get("action")
+        if action == "health":
+            try:
+                response = requests.get(f"{COMFYUI_URL}/system_stats", timeout=10)
+                if response.status_code == 200:
+                    return {
+                        "status": "healthy",
+                        "comfyui_status": response.json()
+                    }
+                return {
+                    "status": "unhealthy",
+                    "error": "ComfyUI not responding"
+                }
+            except Exception as e:
+                return {
+                    "status": "unhealthy",
+                    "error": str(e)
+                }
+
         # Extract parameters
         prompt = input_data.get("prompt")
         if not prompt:

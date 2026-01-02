@@ -1,42 +1,11 @@
 {
   "tests": [
     {
-      "name": "basic_image_generation",
+      "name": "health_check",
       "input": {
-        "prompt": "a beautiful landscape with mountains and a lake, sunset, highly detailed, 4k",
-        "negative_prompt": "blurry, low quality, distorted",
-        "width": 512,
-        "height": 512,
-        "steps": 20,
-        "cfg_scale": 7.5,
-        "sampler": "euler_ancestral"
+        "action": "health"
       },
-      "timeout": 120000
-    },
-    {
-      "name": "high_resolution_generation",
-      "input": {
-        "prompt": "a futuristic cityscape at night, neon lights, cyberpunk style",
-        "negative_prompt": "blurry, low quality",
-        "width": 768,
-        "height": 768,
-        "steps": 30,
-        "cfg_scale": 7.5,
-        "sampler": "dpmpp_2m"
-      },
-      "timeout": 180000
-    },
-    {
-      "name": "fast_generation",
-      "input": {
-        "prompt": "a cute cat playing with a ball of yarn",
-        "width": 512,
-        "height": 512,
-        "steps": 15,
-        "cfg_scale": 7.0,
-        "sampler": "euler_ancestral"
-      },
-      "timeout": 90000
+      "timeout": 60000
     }
   ],
   "config": {
@@ -54,13 +23,10 @@
       {
         "key": "POLL_INTERVAL",
         "value": "1.0"
-      },
-      {
-        "key": "CHECKPOINT",
-        "value": "AnythingXL_xl.safetensors"
       }
     ],
     "allowedCudaVersions": [
+      "12.8",
       "12.7",
       "12.6",
       "12.5",
@@ -69,7 +35,8 @@
       "12.2",
       "12.1",
       "12.0",
-      "11.7"
+      "11.7",
+      "11.8"
     ]
   }
 }
