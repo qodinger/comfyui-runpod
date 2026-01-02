@@ -9,61 +9,102 @@ echo "🚀 Starting ComfyUI Serverless Worker..."
 
 # =============================================================================
 # MODEL DOWNLOAD SECTION
-# Downloads model from HuggingFace if not already present
+# Downloads model from HuggingFace into a persistent volume if available
 # =============================================================================
 
-# Model configuration
-# Note: Script runs from /app (WORKDIR in Dockerfile), so paths are relative to /app
-MODEL_DIR="models/checkpoints"
-MODEL_NAME="AnythingXL_xl.safetensors"
-HF_REPO="tyecode/AnythingXL"
-HF_FILE="AnythingXL_xl.safetensors"
+# Allow configuration via environment variables (preferred)
+# - HF_MODEL_ID: owner/repo (e.g. 'tyecode/AnythingXL')
+# - HF_MODEL_FILE: filename inside repo (e.g. 'AnythingXL_xl.safetensors')
+# - HF_TOKEN: Hugging Face token (for gated models)
 
-# Check if model already exists (e.g., from network volume or previous run)
-if [ ! -f "$MODEL_DIR/$MODEL_NAME" ]; then
-    echo "📦 Model not found locally, downloading from HuggingFace..."
-    
-    # Ensure model directory exists
-    mkdir -p "$MODEL_DIR"
-    
-    # Download from HuggingFace
-    # Note: HF_TOKEN environment variable is required for gated models
-    if [ -n "$HF_TOKEN" ]; then
-        echo "⬇️ Downloading $MODEL_NAME from huggingface.co/$HF_REPO..."
-        echo "   This may take several minutes for large models..."
-        wget --header="Authorization: Bearer $HF_TOKEN" \
-             --progress=bar:force \
-             -O "$MODEL_DIR/$MODEL_NAME" \
-             "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE"
-    else
-        # Try without token (for public models)
-        echo "⚠️ No HF_TOKEN set! Your model requires authentication."
-        echo "   Get your token at: https://huggingface.co/settings/tokens"
-        echo "   Set it as HF_TOKEN environment variable in RunPod."
-        echo ""
-        echo "⬇️ Attempting download anyway (will fail for gated models)..."
-        wget --progress=bar:force \
-             -O "$MODEL_DIR/$MODEL_NAME" \
-             "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE" || {
-            echo "❌ Download failed. HF_TOKEN is required for gated models."
-        }
-    fi
-    
-    # Verify download succeeded
-    if [ -f "$MODEL_DIR/$MODEL_NAME" ] && [ -s "$MODEL_DIR/$MODEL_NAME" ]; then
-        echo "✅ Model downloaded successfully: $MODEL_NAME"
-    else
-        echo "❌ Model download failed or file is empty."
-        rm -f "$MODEL_DIR/$MODEL_NAME"  # Clean up empty file
-        
-        # Fallback: Check network volume
-        if [ -f "/runpod-volume/models/checkpoints/$MODEL_NAME" ]; then
-            echo "📂 Found model in network volume, copying..."
-            cp "/runpod-volume/models/checkpoints/$MODEL_NAME" "$MODEL_DIR/$MODEL_NAME"
-        fi
-    fi
+# Backwards-compat: keep old HF_REPO / HF_FILE / MODEL_NAME if present
+if [ -n "$HF_MODEL_ID" ]; then
+  HF_REPO="$HF_MODEL_ID"
+fi
+if [ -z "$HF_REPO" ]; then
+  HF_REPO="tyecode/AnythingXL"
+fi
+if [ -n "$HF_MODEL_FILE" ]; then
+  HF_FILE="$HF_MODEL_FILE"
+fi
+if [ -z "$HF_FILE" ]; then
+  HF_FILE="AnythingXL_xl.safetensors"
+fi
+MODEL_NAME="${HF_FILE##*/}"
+
+# Prefer persistent locations (RunPod exposes network volume at /runpod-volume in some setups)
+if [ -d "/runpod-volume" ]; then
+  PERSIST_PREFIX="/runpod-volume"
+elif [ -d "/workspace" ]; then
+  PERSIST_PREFIX="/workspace"
 else
-    echo "✅ Model already exists: $MODEL_NAME"
+  PERSIST_PREFIX="/app"
+fi
+DEST_DIR="$PERSIST_PREFIX/models/checkpoints"
+APP_MODELS_PATH="/app/models"
+
+# Create persistent model directory
+mkdir -p "$DEST_DIR"
+
+# If /app/models doesn't exist, create a symlink to persistent location so ComfyUI sees models/...
+if [ ! -L "$APP_MODELS_PATH" ]; then
+  if [ -e "$APP_MODELS_PATH" ]; then
+    echo "⚠️ /app/models exists and is not a symlink. Leaving as-is."
+  else
+    ln -s "$PERSIST_PREFIX/models" "$APP_MODELS_PATH" || true
+    echo "🔗 Linked $APP_MODELS_PATH -> $PERSIST_PREFIX/models"
+  fi
+fi
+
+# Helper: check free space (in KB) for DEST_DIR filesystem
+avail_kb=$(df -k --output=avail "$DEST_DIR" | tail -1 | tr -d '[:space:]') || avail_kb=0
+# Require at least 5 GB free for large models (approx). Adjust if you know smaller/larger.
+min_kb=$((5 * 1024 * 1024))
+if [ "$avail_kb" -lt "$min_kb" ]; then
+  echo "⚠️ Low disk space at $DEST_DIR (available: ${avail_kb} KB)."
+  echo "   Recommend mounting a larger persistent volume to /runpod-volume or /workspace/models."
+fi
+
+# Compose final path we'll write to
+FINAL_PATH="$DEST_DIR/$MODEL_NAME"
+
+# If model is already available in persistent location, skip download
+if [ -f "$FINAL_PATH" ] && [ -s "$FINAL_PATH" ]; then
+  echo "✅ Model already present in persistent storage: $FINAL_PATH"
+else
+  echo "📦 Model not found in persistent storage. Preparing to download to $FINAL_PATH"
+
+  # If very low disk space, warn and skip download to avoid filling container
+  if [ "$avail_kb" -lt "$min_kb" ]; then
+    echo "❌ Insufficient disk space to download model. Aborting download."
+  else
+    # Download using HF_TOKEN if present; prefer huggingface-hub but wget is fine here
+    if [ -n "$HF_TOKEN" ]; then
+      echo "⬇️ Downloading $MODEL_NAME from huggingface.co/$HF_REPO (auth provided)..."
+      wget --header="Authorization: Bearer $HF_TOKEN" --progress=bar:force -O "$FINAL_PATH" "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE" || {
+        echo "❌ Download failed (wget returned non-zero)."
+        rm -f "$FINAL_PATH" || true
+      }
+    else
+      echo "⬇️ Downloading $MODEL_NAME from huggingface.co/$HF_REPO (no token)..."
+      wget --progress=bar:force -O "$FINAL_PATH" "https://huggingface.co/$HF_REPO/resolve/main/$HF_FILE" || {
+        echo "❌ Download failed (no token or network error)."
+        rm -f "$FINAL_PATH" || true
+      }
+    fi
+
+    # Verify
+    if [ -f "$FINAL_PATH" ] && [ -s "$FINAL_PATH" ]; then
+      echo "✅ Model downloaded successfully: $FINAL_PATH"
+    else
+      echo "❌ Model not present after download. Checking for fallback copies..."
+      # Fallback: maybe another process populated /runpod-volume/models
+      if [ -f "/runpod-volume/models/checkpoints/$MODEL_NAME" ]; then
+        echo "📂 Found model in /runpod-volume, copying to $FINAL_PATH"
+        cp "/runpod-volume/models/checkpoints/$MODEL_NAME" "$FINAL_PATH" || true
+      fi
+    fi
+  fi
 fi
 
 # =============================================================================
