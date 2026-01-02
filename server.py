@@ -1095,13 +1095,18 @@ class PromptServer():
         @self.routes.post("/keys")
         async def create_api_key(request):
             """Create a new API key"""
-            # Fixed Bug 1: Always require authentication for API key management
-            api_key = _require_auth(request)
-            if not api_key:
-                return web.json_response(
-                    {"error": "API key required", "error_code": "AUTH_REQUIRED"},
-                    status=401
-                )
+            # Bootstrap fix: Allow first key creation without auth
+            # Once keys exist, require authentication for subsequent keys
+            existing_keys = self.api_key_manager.list_keys()
+            if existing_keys:
+                # Keys exist - require authentication
+                api_key = _require_auth(request)
+                if not api_key:
+                    return web.json_response(
+                        {"error": "API key required", "error_code": "AUTH_REQUIRED"},
+                        status=401
+                    )
+            # else: No keys exist yet - allow bootstrap creation
 
             try:
                 data = await request.json()

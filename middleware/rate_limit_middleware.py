@@ -31,12 +31,13 @@ def create_rate_limit_middleware(usage_tracker: UsageTracker):
             # No rate limiting for unauthenticated requests (if allowed)
             return await handler(request)
 
-        # Fixed Bug 1: Increment usage count BEFORE checking to prevent TOCTOU race condition
+        # Increment usage count BEFORE checking to prevent TOCTOU race condition
         # This ensures concurrent requests see the updated count immediately
-        # Use >= instead of > to correctly reject when limit is exactly reached
         new_count = usage_tracker.increment_usage_count(api_key.key_id)
 
-        if new_count >= api_key.rate_limit:
+        # Use > (not >=) because new_count includes this request
+        # If rate_limit=100: requests 1-100 are allowed (new_count 1-100), request 101 is rejected
+        if new_count > api_key.rate_limit:
             # Over limit - decrement the count we just incremented
             current_hour = int(time.time() // 3600)
             usage_tracker.hourly_counts[api_key.key_id][current_hour] = max(0, usage_tracker.hourly_counts[api_key.key_id][current_hour] - 1)
